@@ -36,15 +36,18 @@ public class ClawController : MonoBehaviour
     public List<GameObject> toys = new List<GameObject>();
 
     [Header("Координаты отсеков")]
-    [Tooltip("Верхний ящик (куда падает игрушка)")]
+    [Tooltip("Центр верхнего ящика (куда падает игрушка)")]
     public Vector3 dropZonePosition = new Vector3(-0.5f, 1.1f, 0f);
-    [Tooltip("Нижний отсек (куда указывает стрелка, куда проваливается игрушка)")]
-    public Vector3 bottomChutePosition = new Vector3(-0.5f, 0.6f, 0f); // <-- НАСТРОЙТЕ ПОД СВОЮ СЦЕНУ
+
+    [Tooltip("Центр нижнего отсека (куда проваливается игрушка)")]
+    public Vector3 bottomChutePosition = new Vector3(-0.5f, 0.6f, -0.5f);
 
     public float dropZoneRadius = 0.4f;
-    public float fallSpeed = 3f;           // Скорость падения
-    public float floorY = 1.0f;            // Высота пола
-    public float disappearDelay = 3f;      // Ждем 3 секунды перед исчезновением в нижнем отсеке
+
+    [Header("Параметры анимации")]
+    public float fallSpeed = 2f;
+    public float floorY = 1.0f;
+    public float disappearDelay = 3f;
 
     private float currentAngle = 0f;
     private Quaternion baseRot1, baseRot2, baseRot3;
@@ -68,14 +71,12 @@ public class ClawController : MonoBehaviour
     private bool isToyFalling = false;
     private GameObject fallingToy = null;
 
-    // Стадии падения
+    // 0 - падает в ящик, 1 - переносится в нижний отсек, 2 - ждет 3 секунды, -1 - падает на пол
     private int fallPhase = 0;
-    // 0 - падает внутри ящика (высокий уровень)
-    // 1 - проваливается в нижний отсек (перемещение сквозь дно)
-    // 2 - ждет 3 секунды в нижнем отсеке и исчезает
-    // -1 - просто лежит на полу
-
     private float disappearTimer = 0f;
+
+    private Vector3 startMovePos;
+    private float moveProgress = 0f;
 
     void Start()
     {
@@ -354,18 +355,18 @@ public class ClawController : MonoBehaviour
         Vector3 toyPos = fallingToy.transform.position;
         float distXZ = Vector2.Distance(new Vector2(toyPos.x, toyPos.z), new Vector2(dropZonePosition.x, dropZonePosition.z));
 
-        // Если клешня отпустила над отсеком
         if (distXZ <= dropZoneRadius)
         {
-            fallPhase = 0; // Начинаем падать в ящике
+            fallPhase = 0; // В отсек
         }
         else
         {
-            fallPhase = -1; // Падает на пол
+            fallPhase = -1; // На пол
         }
 
         isToyFalling = true;
         disappearTimer = 0f;
+        moveProgress = 0f;
 
         grabbedToy = null;
     }
@@ -382,41 +383,43 @@ public class ClawController : MonoBehaviour
 
         if (fallPhase == 0)
         {
-            // Фаза 0: Падение до дна ящика
             pos.y -= fallSpeed * Time.deltaTime;
             fallingToy.transform.position = pos;
 
-            if (pos.y <= dropZonePosition.y - 0.2f)
+            if (pos.y <= dropZonePosition.y - 0.1f)
             {
-                // Достигли дна ящика. Переходим к Фазе 1: "Проваливаемся" в нижнюю дыру.
                 fallPhase = 1;
-                disappearTimer = 0f; // Сбрасываем таймер для плавного "проваливания"
+                startMovePos = fallingToy.transform.position;
             }
         }
         else if (fallPhase == 1)
         {
-            // Фаза 1: Проваливание сквозь дно в нижний отсек
-            pos.y -= (fallSpeed * 1.5f) * Time.deltaTime; // Ускоряем падение
-            fallingToy.transform.position = pos;
+            moveProgress += Time.deltaTime * 2f;
+            fallingToy.transform.position = Vector3.Lerp(startMovePos, bottomChutePosition, moveProgress);
 
-            if (pos.y <= bottomChutePosition.y)
+            if (moveProgress >= 1f)
             {
-                // Игрушка достигла координат нижнего отсека (куда указывает стрелка)
-                pos = bottomChutePosition;
-                fallingToy.transform.position = pos;
+                fallingToy.transform.position = bottomChutePosition;
                 fallPhase = 2;
                 disappearTimer = 0f;
             }
         }
         else if (fallPhase == 2)
         {
-            // Фаза 2: Игрушка лежит в нижнем отсеке. Ждем 3 секунды.
             disappearTimer += Time.deltaTime;
             if (disappearTimer >= disappearDelay)
             {
+                string originalName = fallingToy.name.Replace("Toy_", "");
+
                 fallingToy.SetActive(false);
+
                 if (ScoreManager.Instance != null) ScoreManager.Instance.AddPoint();
-                Debug.Log("[ClawController] Игрушка провалилась в отсек и исчезла! Счет увеличен.");
+
+                // Сообщаем менеджеру уровней о собранной игрушке
+                if (LevelManager.Instance != null)
+                    LevelManager.Instance.OnToyCollected(originalName);
+
+                Debug.Log($"[ClawController] Игрушка {originalName} исчезла из отсека!");
 
                 isToyFalling = false;
                 fallingToy = null;
@@ -424,7 +427,6 @@ public class ClawController : MonoBehaviour
         }
         else if (fallPhase == -1)
         {
-            // Падение на пол (вне отсека)
             if (pos.y > floorY)
             {
                 pos.y -= fallSpeed * Time.deltaTime;
@@ -434,10 +436,21 @@ public class ClawController : MonoBehaviour
             {
                 pos.y = floorY;
                 fallingToy.transform.position = pos;
-                Debug.Log("[ClawController] Игрушка упала на пол.");
                 isToyFalling = false;
                 fallingToy = null;
             }
         }
+    }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(dropZonePosition, dropZoneRadius);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(bottomChutePosition, 0.2f);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(dropZonePosition, bottomChutePosition);
     }
 }

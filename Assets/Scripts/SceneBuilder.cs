@@ -77,11 +77,16 @@ public class SceneBuilder : MonoBehaviour
         controller.offsetZ = 0f;
         controller.minY = 1.2f;
         controller.lowerSpeed = 0.8f;
-        controller.grabDistance = 0.3f;
+        controller.grabDistance = 0.3f; // Захардкожено
         controller.ropeTopY = 3.5f;
 
         // Игрушки
         SpawnToys(controller);
+
+        // Менеджер уровней
+        GameObject lmObj = new GameObject("LevelManager");
+        LevelManager levelManager = lmObj.AddComponent<LevelManager>();
+        levelManager.clawController = controller;
 
         // UI
         GameObject canvasObj = new GameObject("Canvas");
@@ -96,8 +101,8 @@ public class SceneBuilder : MonoBehaviour
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
 
-        // Табло со счетом
-        CreateScoreBoard(canvasObj.transform, "cow_icon");
+        // Табло с уровнем, иконками и счетом
+        CreateScoreBoard(canvasObj.transform, levelManager);
 
         // Кнопки
         CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-400, 150), controller, true);
@@ -110,42 +115,34 @@ public class SceneBuilder : MonoBehaviour
     {
         string[] toyPrefabNames = new string[] {
             "cow_plush_toy",
-            "viral_monkey_plush_toy",         // Обезьянка
-            "mario_soft_toy",                 // Марио
-            "teddy_bear_3d_model",            // Медвежонок
-            "Vinnie_the_Pooh",                // Винни-Пух
-            "kangaroo_kids_toy_plushie"       // Кенгуру
+            "viral_monkey_plush_toy",
+            "mario_soft_toy",
+            "teddy_bear_3d_model",
+            "Vinnie_the_Pooh",
+            "kangaroo_kids_toy_plushie"
         };
 
-        // Повороты
         Quaternion baseRot = Quaternion.Euler(-90, 190, 90);
         Quaternion[] toyRotations = new Quaternion[] {
-            baseRot,                                  // 0: Корова
-            baseRot,                                  // 1: Обезьянка
-            Quaternion.Euler(-90f, 90f, 90f),         // 2: Марио
-            Quaternion.Euler(-90f, 10f, 90f),         // 3: Медвежонок (развернут на 180 градусов)
-            Quaternion.Euler(0f, 0f, 0f),             // 4: Винни-Пух
-            baseRot                                   // 5: Кенгуру
+            baseRot,
+            baseRot,
+            Quaternion.Euler(-90f, 90f, 90f),
+            Quaternion.Euler(-90f, 10f, 90f),
+            Quaternion.Euler(0f, 0f, 0f),
+            baseRot
         };
 
-        // Позиции
         Vector3[] toyPositions = new Vector3[] {
-            new Vector3( 0.10f, 0f, -0.35f),  // Корова (передний левый)
-            new Vector3( 0.40f, 0f,  0.20f),  // Обезьянка (задний центр)
-            new Vector3( 0.40f, 0f, -0.35f),  // Марио (передний центр)
-            new Vector3(-0.50f, 0f,  0.20f),  // Медвежонок (за отсеком)
-            new Vector3( 0.40f, 0f,  0.00f),  // Винни-Пух (в середине)
-            new Vector3( 0.10f, 0f,  0.20f),  // Кенгуру (задний левый)
+            new Vector3( 0.10f, 0f, -0.35f),
+            new Vector3( 0.40f, 0f,  0.20f),
+            new Vector3( 0.40f, 0f, -0.35f),
+            new Vector3(-0.50f, 0f,  0.20f),
+            new Vector3( 0.40f, 0f,  0.00f),
+            new Vector3( 0.10f, 0f,  0.20f),
         };
 
-        // Индивидуальные высоты для игрушек (масштаб)
         float[] toyHeights = new float[] {
-            0.38f,  // Корова
-            0.38f,  // Обезьянка
-            0.38f,  // Марио
-            0.38f,  // Медвежонок
-            0.38f,  // Винни-Пух
-            0.55f   // Кенгуру (сделали больше)
+            0.38f, 0.38f, 0.38f, 0.38f, 0.38f, 0.55f
         };
 
         float floorTopY = 1.0f;
@@ -157,73 +154,43 @@ public class SceneBuilder : MonoBehaviour
             GameObject prefab = Resources.Load<GameObject>(toyPrefabNames[i]);
             if (prefab == null)
             {
-                Debug.LogWarning($"[SceneBuilder] Префаб '{toyPrefabNames[i]}' не найден в Resources!");
+                Debug.LogWarning($"[SceneBuilder] Префаб '{toyPrefabNames[i]}' не найден!");
                 continue;
             }
 
             GameObject toy = Instantiate(prefab, Vector3.zero, toyRotations[i]);
             toy.name = "Toy_" + toyPrefabNames[i];
 
-            // Убираем старые коллайдеры
             foreach (var col in toy.GetComponentsInChildren<Collider>())
                 DestroyImmediate(col);
 
-            // Считаем общий bounding box
             Bounds bounds = new Bounds(toy.transform.position, Vector3.zero);
             bool hasBounds = false;
             foreach (var r in toy.GetComponentsInChildren<Renderer>())
             {
-                if (!hasBounds)
-                {
-                    bounds = r.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    bounds.Encapsulate(r.bounds);
-                }
+                if (!hasBounds) { bounds = r.bounds; hasBounds = true; }
+                else bounds.Encapsulate(r.bounds);
             }
 
-            if (!hasBounds)
-            {
-                Debug.LogWarning($"[SceneBuilder] У префаба '{toyPrefabNames[i]}' нет рендереров, пропускаем.");
-                DestroyImmediate(toy);
-                continue;
-            }
+            if (!hasBounds) { DestroyImmediate(toy); continue; }
 
-            // Берем индивидуальную высоту
             float targetHeight = toyHeights[i];
-
-            // Масштабируем до targetHeight
-            float currentHeight = bounds.size.y;
-            if (currentHeight <= 0.0001f) currentHeight = 1f;
+            float currentHeight = bounds.size.y > 0.0001f ? bounds.size.y : 1f;
             float scaleFactor = targetHeight / currentHeight;
             toy.transform.localScale = toy.transform.localScale * scaleFactor;
 
-            // Пересчитываем bounds после масштабирования
             bounds = new Bounds(toy.transform.position, Vector3.zero);
             hasBounds = false;
             foreach (var r in toy.GetComponentsInChildren<Renderer>())
             {
-                if (!hasBounds)
-                {
-                    bounds = r.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    bounds.Encapsulate(r.bounds);
-                }
+                if (!hasBounds) { bounds = r.bounds; hasBounds = true; }
+                else bounds.Encapsulate(r.bounds);
             }
 
-            // Сажаем на пол
             Vector3 pos = toyPositions[i];
-            float currentBottom = bounds.min.y;
-            float deltaY = floorTopY - currentBottom;
-
+            float deltaY = floorTopY - bounds.min.y;
             toy.transform.position = new Vector3(pos.x, deltaY, pos.z);
 
-            // Добавляем BoxCollider
             BoxCollider box = toy.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, targetHeight * 0.5f, 0f);
             box.size = new Vector3(
@@ -238,17 +205,16 @@ public class SceneBuilder : MonoBehaviour
 
             controller.toys.Add(toy);
         }
-
-        Debug.Log($"[SceneBuilder] Создано игрушек: {controller.toys.Count}");
     }
 
-    private void CreateScoreBoard(Transform parent, string iconResourceName)
+    private void CreateScoreBoard(Transform parent, LevelManager levelManager)
     {
+        // 1. Главная панель табло
         GameObject scoreBoardObj = new GameObject("ScoreBoard");
         scoreBoardObj.transform.SetParent(parent, false);
 
         RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(400, 100);
+        rt.sizeDelta = new Vector2(600, 120);
         rt.anchoredPosition = new Vector2(0f, -100f);
         rt.anchorMin = new Vector2(0.5f, 1f);
         rt.anchorMax = new Vector2(0.5f, 1f);
@@ -256,48 +222,65 @@ public class SceneBuilder : MonoBehaviour
         Image img = scoreBoardObj.AddComponent<Image>();
         img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
-        GameObject iconObj = new GameObject("TargetIcon");
-        iconObj.transform.SetParent(scoreBoardObj.transform, false);
+        // 2. Текст с уровнем (слева)
+        GameObject levelTextObj = new GameObject("LevelText");
+        levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
+        RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
+        lrt.anchorMin = new Vector2(0f, 0.5f);
+        lrt.anchorMax = new Vector2(0f, 0.5f);
+        lrt.pivot = new Vector2(0f, 0.5f);
+        lrt.anchoredPosition = new Vector2(15f, 0f);
+        lrt.sizeDelta = new Vector2(160f, 100f);
 
-        RectTransform iconRt = iconObj.AddComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0f, 0.5f);
-        iconRt.anchorMax = new Vector2(0f, 0.5f);
-        iconRt.pivot = new Vector2(0f, 0.5f);
-        iconRt.sizeDelta = new Vector2(80f, 80f);
-        iconRt.anchoredPosition = new Vector2(10f, 0f);
+        Text levelText = levelTextObj.AddComponent<Text>();
+        levelText.text = "УРОВЕНЬ 1";
+        levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        levelText.alignment = TextAnchor.MiddleLeft;
+        levelText.color = Color.white;
+        levelText.fontSize = 32;
 
-        Image iconImg = iconObj.AddComponent<Image>();
-        iconImg.raycastTarget = false;
-        iconImg.preserveAspect = true;
+        // 3. Контейнер для иконок (в центре)
+        GameObject containerObj = new GameObject("IconsContainer");
+        containerObj.transform.SetParent(scoreBoardObj.transform, false);
 
-        Sprite iconSprite = Resources.Load<Sprite>(iconResourceName);
-        if (iconSprite == null)
-        {
-            iconSprite = CowIconGenerator.CreateCowIcon(128);
-            Debug.Log("[SceneBuilder] Спрайт не найден, сгенерирована процедурная иконка коровы.");
-        }
+        RectTransform crt = containerObj.AddComponent<RectTransform>();
+        crt.anchorMin = new Vector2(0f, 0.5f);
+        crt.anchorMax = new Vector2(1f, 0.5f);
+        crt.pivot = new Vector2(0f, 0.5f);
+        crt.offsetMin = new Vector2(180f, -40f);
+        crt.offsetMax = new Vector2(-160f, 40f);
 
-        iconImg.sprite = iconSprite;
-        iconImg.color = Color.white;
+        HorizontalLayoutGroup layout = containerObj.AddComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.spacing = 10f;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
 
-        GameObject textObj = new GameObject("ScoreText");
-        textObj.transform.SetParent(scoreBoardObj.transform, false);
+        // 4. Текст счета (справа)
+        GameObject scoreTextObj = new GameObject("ScoreText");
+        scoreTextObj.transform.SetParent(scoreBoardObj.transform, false);
+        RectTransform srt = scoreTextObj.AddComponent<RectTransform>();
+        srt.anchorMin = new Vector2(1f, 0.5f);
+        srt.anchorMax = new Vector2(1f, 0.5f);
+        srt.pivot = new Vector2(1f, 0.5f);
+        srt.anchoredPosition = new Vector2(-15f, 0f);
+        srt.sizeDelta = new Vector2(150f, 100f);
 
-        RectTransform textRt = textObj.AddComponent<RectTransform>();
-        textRt.anchorMin = Vector2.zero;
-        textRt.anchorMax = Vector2.one;
-        textRt.offsetMin = new Vector2(100f, 0f);
-        textRt.offsetMax = new Vector2(-10f, 0f);
+        Text scoreText = scoreTextObj.AddComponent<Text>();
+        scoreText.text = "СЧЕТ: 0";
+        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        scoreText.alignment = TextAnchor.MiddleRight;
+        scoreText.color = Color.yellow;
+        scoreText.fontSize = 32;
 
-        Text t = textObj.AddComponent<Text>();
-        t.text = "СЧЕТ: 0";
-        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        t.alignment = TextAnchor.MiddleCenter;
-        t.color = Color.yellow;
-        t.fontSize = 48;
-
+        // 5. Связываем
         ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
-        scoreManager.scoreText = t;
+        scoreManager.scoreText = scoreText;
+
+        levelManager.levelText = levelText;
+        levelManager.iconsContainer = containerObj.transform;
     }
 
     private void CreateButton(Transform parent, string name, string text, Vector2 pos, ClawController controller, bool isGrab)

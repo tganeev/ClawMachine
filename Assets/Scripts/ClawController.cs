@@ -383,11 +383,9 @@ public class ClawController : MonoBehaviour
 
         if (fallPhase == 0)
         {
-            // 1. Плавно падает до дна верхнего ящика
             pos.y -= fallSpeed * Time.deltaTime;
             fallingToy.transform.position = pos;
 
-            // Достигли дна ящика
             if (pos.y <= dropZonePosition.y - 0.1f)
             {
                 fallPhase = 1;
@@ -396,7 +394,6 @@ public class ClawController : MonoBehaviour
         }
         else if (fallPhase == 1)
         {
-            // 2. Переносим в нижний отсек (куда указывает стрелка)
             moveProgress += Time.deltaTime * 2f;
             fallingToy.transform.position = Vector3.Lerp(startMovePos, bottomChutePosition, moveProgress);
 
@@ -409,13 +406,20 @@ public class ClawController : MonoBehaviour
         }
         else if (fallPhase == 2)
         {
-            // 3. Лежит в нижнем отсеке 3 секунды и исчезает
             disappearTimer += Time.deltaTime;
             if (disappearTimer >= disappearDelay)
             {
+                string originalName = fallingToy.name.Replace("Toy_", "");
+
                 fallingToy.SetActive(false);
+
                 if (ScoreManager.Instance != null) ScoreManager.Instance.AddPoint();
-                Debug.Log("[ClawController] Игрушка исчезла из нижнего отсека! Счет увеличен.");
+
+                // Сообщаем менеджеру уровней о собранной игрушке
+                if (LevelManager.Instance != null)
+                    LevelManager.Instance.OnToyCollected(originalName);
+
+                Debug.Log($"[ClawController] Игрушка {originalName} исчезла из отсека!");
 
                 isToyFalling = false;
                 fallingToy = null;
@@ -423,7 +427,6 @@ public class ClawController : MonoBehaviour
         }
         else if (fallPhase == -1)
         {
-            // Падение на пол (промах)
             if (pos.y > floorY)
             {
                 pos.y -= fallSpeed * Time.deltaTime;
@@ -441,7 +444,6 @@ public class ClawController : MonoBehaviour
 
     void OnDrawGizmos()
     {
-        // Визуализация зон в редакторе (вкладка Scene)
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(dropZonePosition, dropZoneRadius);
 
