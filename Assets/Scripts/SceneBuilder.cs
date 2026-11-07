@@ -77,16 +77,17 @@ public class SceneBuilder : MonoBehaviour
         controller.offsetZ = 0f;
         controller.minY = 1.2f;
         controller.lowerSpeed = 0.8f;
-        controller.grabDistance = 0.3f; // Захардкожено
+        controller.grabDistance = 0.3f;
         controller.ropeTopY = 3.5f;
 
-        // Игрушки
+        // Игрушки (вызываем один раз при старте)
         SpawnToys(controller);
 
         // Менеджер уровней
         GameObject lmObj = new GameObject("LevelManager");
         LevelManager levelManager = lmObj.AddComponent<LevelManager>();
         levelManager.clawController = controller;
+        levelManager.sceneBuilder = this;
 
         // UI
         GameObject canvasObj = new GameObject("Canvas");
@@ -104,6 +105,9 @@ public class SceneBuilder : MonoBehaviour
         // Табло с уровнем, иконками и счетом
         CreateScoreBoard(canvasObj.transform, levelManager);
 
+        // Большой текст по центру экрана
+        CreateBigLevelText(canvasObj.transform, levelManager);
+
         // Кнопки
         CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-400, 150), controller, true);
         CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(-400, 300), controller, false);
@@ -111,11 +115,18 @@ public class SceneBuilder : MonoBehaviour
         Debug.Log("Сцена собрана!");
     }
 
-    private void SpawnToys(ClawController controller)
+    public void SpawnToys(ClawController controller)
     {
+        // Удаляем старые игрушки
+        foreach (var toy in controller.toys)
+        {
+            if (toy != null) Destroy(toy);
+        }
+        controller.toys.Clear();
+
         string[] toyPrefabNames = new string[] {
             "cow_plush_toy",
-            "viral_monkey_plush_toy",
+            "labubu_classic_-_collectible_3d_figure",
             "mario_soft_toy",
             "teddy_bear_3d_model",
             "Vinnie_the_Pooh",
@@ -147,16 +158,10 @@ public class SceneBuilder : MonoBehaviour
 
         float floorTopY = 1.0f;
 
-        controller.toys.Clear();
-
         for (int i = 0; i < toyPrefabNames.Length; i++)
         {
             GameObject prefab = Resources.Load<GameObject>(toyPrefabNames[i]);
-            if (prefab == null)
-            {
-                Debug.LogWarning($"[SceneBuilder] Префаб '{toyPrefabNames[i]}' не найден!");
-                continue;
-            }
+            if (prefab == null) continue;
 
             GameObject toy = Instantiate(prefab, Vector3.zero, toyRotations[i]);
             toy.name = "Toy_" + toyPrefabNames[i];
@@ -209,7 +214,6 @@ public class SceneBuilder : MonoBehaviour
 
     private void CreateScoreBoard(Transform parent, LevelManager levelManager)
     {
-        // 1. Главная панель табло
         GameObject scoreBoardObj = new GameObject("ScoreBoard");
         scoreBoardObj.transform.SetParent(parent, false);
 
@@ -222,7 +226,7 @@ public class SceneBuilder : MonoBehaviour
         Image img = scoreBoardObj.AddComponent<Image>();
         img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
-        // 2. Текст с уровнем (слева)
+        // Текст уровня
         GameObject levelTextObj = new GameObject("LevelText");
         levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
         RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
@@ -239,7 +243,7 @@ public class SceneBuilder : MonoBehaviour
         levelText.color = Color.white;
         levelText.fontSize = 32;
 
-        // 3. Контейнер для иконок (в центре)
+        // Контейнер иконок
         GameObject containerObj = new GameObject("IconsContainer");
         containerObj.transform.SetParent(scoreBoardObj.transform, false);
 
@@ -258,7 +262,7 @@ public class SceneBuilder : MonoBehaviour
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        // 4. Текст счета (справа)
+        // Текст счета
         GameObject scoreTextObj = new GameObject("ScoreText");
         scoreTextObj.transform.SetParent(scoreBoardObj.transform, false);
         RectTransform srt = scoreTextObj.AddComponent<RectTransform>();
@@ -275,12 +279,38 @@ public class SceneBuilder : MonoBehaviour
         scoreText.color = Color.yellow;
         scoreText.fontSize = 32;
 
-        // 5. Связываем
         ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
         scoreManager.scoreText = scoreText;
 
         levelManager.levelText = levelText;
         levelManager.iconsContainer = containerObj.transform;
+    }
+
+    private void CreateBigLevelText(Transform parent, LevelManager levelManager)
+    {
+        GameObject textObj = new GameObject("BigLevelText");
+        textObj.transform.SetParent(parent, false);
+
+        RectTransform rt = textObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = new Vector2(800, 300);
+
+        Text t = textObj.AddComponent<Text>();
+        t.text = "УРОВЕНЬ 1";
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.alignment = TextAnchor.MiddleCenter;
+        t.color = Color.white;
+        t.fontSize = 120;
+        t.fontStyle = FontStyle.Bold;
+
+        Outline outline = textObj.AddComponent<Outline>();
+        outline.effectColor = Color.black;
+        outline.effectDistance = new Vector2(4, -4);
+
+        textObj.SetActive(false);
+        levelManager.bigLevelText = t;
     }
 
     private void CreateButton(Transform parent, string name, string text, Vector2 pos, ClawController controller, bool isGrab)

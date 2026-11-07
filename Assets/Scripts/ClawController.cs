@@ -71,7 +71,6 @@ public class ClawController : MonoBehaviour
     private bool isToyFalling = false;
     private GameObject fallingToy = null;
 
-    // 0 - падает в ящик, 1 - переносится в нижний отсек, 2 - ждет 3 секунды, -1 - падает на пол
     private int fallPhase = 0;
     private float disappearTimer = 0f;
 
@@ -145,6 +144,39 @@ public class ClawController : MonoBehaviour
         isInitialized = true;
     }
 
+    // Новый метод: принудительный сброс клешни при старте нового уровня
+    public void ResetClawForNewLevel()
+    {
+        // Отпускаем игрушку, если несли
+        if (grabbedToy != null)
+        {
+            grabbedToy.transform.SetParent(null);
+            grabbedToy = null;
+            grabbedRigidbody = null;
+        }
+
+        // Сбрасываем состояния
+        isLowering = false;
+        isGrabbing = false;
+        isToyFalling = false;
+        fallingToy = null;
+        isGrabbingActive = false;
+        isReleasingActive = false;
+        currentAngle = 0f;
+        fallPhase = 0;
+
+        // Возвращаем на исходную позицию
+        if (clawPivot != null)
+        {
+            Vector3 center = new Vector3(offsetX, ropeTopY - 1.5f, offsetZ);
+            clawPivot.position = new Vector3(center.x - squareSize, center.y, center.z + squareSize); // topLeft
+            clawPivot.rotation = Quaternion.Euler(0, 90, 0);
+            currentWaypointIndex = 0;
+        }
+
+        UpdateRopeAndHands();
+    }
+
     void MoveToPivot(string name)
     {
         Transform obj = FindTransformByName(name);
@@ -192,21 +224,9 @@ public class ClawController : MonoBehaviour
         }
     }
 
-    public void StopGrabbing()
-    {
-        isGrabbingActive = false;
-    }
-
-    public void StartReleasing()
-    {
-        isReleasingActive = true;
-        isGrabbingActive = false;
-    }
-
-    public void StopReleasing()
-    {
-        isReleasingActive = false;
-    }
+    public void StopGrabbing() { isGrabbingActive = false; }
+    public void StartReleasing() { isReleasingActive = true; isGrabbingActive = false; }
+    public void StopReleasing() { isReleasingActive = false; }
 
     void Update()
     {
@@ -357,11 +377,11 @@ public class ClawController : MonoBehaviour
 
         if (distXZ <= dropZoneRadius)
         {
-            fallPhase = 0; // В отсек
+            fallPhase = 0;
         }
         else
         {
-            fallPhase = -1; // На пол
+            fallPhase = -1;
         }
 
         isToyFalling = true;
@@ -415,11 +435,8 @@ public class ClawController : MonoBehaviour
 
                 if (ScoreManager.Instance != null) ScoreManager.Instance.AddPoint();
 
-                // Сообщаем менеджеру уровней о собранной игрушке
                 if (LevelManager.Instance != null)
                     LevelManager.Instance.OnToyCollected(originalName);
-
-                Debug.Log($"[ClawController] Игрушка {originalName} исчезла из отсека!");
 
                 isToyFalling = false;
                 fallingToy = null;
@@ -440,17 +457,5 @@ public class ClawController : MonoBehaviour
                 fallingToy = null;
             }
         }
-    }
-
-    void OnDrawGizmos()
-    {
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(dropZonePosition, dropZoneRadius);
-
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(bottomChutePosition, 0.2f);
-
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(dropZonePosition, bottomChutePosition);
     }
 }
