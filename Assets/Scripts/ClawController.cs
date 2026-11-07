@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ClawController : MonoBehaviour
 {
@@ -22,7 +23,8 @@ public class ClawController : MonoBehaviour
     [Header("Опускание и захват")]
     public float minY = 1.2f;
     public float lowerSpeed = 2f;
-    public float grabDistance = 1.5f;
+    [Tooltip("Захардкожено: 0.3")]
+    public float grabDistance = 0.3f;
 
     [Header("Высота потолка")]
     public float ropeTopY = 3.5f;
@@ -31,11 +33,15 @@ public class ClawController : MonoBehaviour
     public Transform hand1;
     public Transform hand2;
     public Transform hand3;
-    public GameObject targetToy;
+    public List<GameObject> toys = new List<GameObject>();
 
-    [Header("Зоны отсеков")]
+    [Header("Зона отсека")]
     public Vector3 dropZonePosition = new Vector3(-0.5f, 1.1f, 0f);
-    public Vector3 exitZonePosition = new Vector3(-0.2f, 0.6f, -0.5f);
+    public float dropZoneRadius = 0.4f; // Немного уменьшили для точности
+    public Vector3 exitZonePosition = new Vector3(-0.2f, 0.6f, -0.5f); // Куда проваливается
+
+    [Header("Падение")]
+    public float maxFallTime = 5f;
 
     private float currentAngle = 0f;
     private Quaternion baseRot1, baseRot2, baseRot3;
@@ -58,8 +64,7 @@ public class ClawController : MonoBehaviour
 
     private bool isToyFalling = false;
     private float fallTimer = 0f;
-    private float fallDuration = 1.5f;
-    private float teleportDelayDuration = 0.5f;
+    private GameObject fallingToy = null;
 
     void Start()
     {
@@ -144,6 +149,26 @@ public class ClawController : MonoBehaviour
         return null;
     }
 
+    GameObject FindNearestToy()
+    {
+        GameObject nearest = null;
+        float bestDist = float.MaxValue;
+        Vector3 clawFlat = new Vector3(clawPivot.position.x, 0, clawPivot.position.z);
+
+        foreach (var toy in toys)
+        {
+            if (toy == null || !toy.activeSelf) continue;
+            Vector3 toyFlat = new Vector3(toy.transform.position.x, 0, toy.transform.position.z);
+            float d = Vector3.Distance(clawFlat, toyFlat);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                nearest = toy;
+            }
+        }
+        return nearest;
+    }
+
     public void StartGrabbing()
     {
         isGrabbingActive = true;
@@ -178,6 +203,14 @@ public class ClawController : MonoBehaviour
         if (isToyFalling)
         {
             HandleToyFalling();
+
+            Vector3 targetPos = waypoints[currentWaypointIndex];
+            clawPivot.position = Vector3.MoveTowards(clawPivot.position, targetPos, moveSpeed * Time.deltaTime);
+            if (Vector3.Distance(clawPivot.position, targetPos) < 0.01f)
+            {
+                currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
+            }
+            UpdateRopeAndHands();
             return;
         }
 
@@ -199,18 +232,7 @@ public class ClawController : MonoBehaviour
 
             if (grabbedToy != null)
             {
-                grabbedToy.transform.SetParent(null);
-                if (grabbedRigidbody != null)
-                {
-                    grabbedRigidbody.isKinematic = false;
-                    grabbedRigidbody.useGravity = true;
-                }
-
-                isToyFalling = true;
-                fallTimer = 0f;
-
-                grabbedToy = null;
-                grabbedRigidbody = null;
+                ReleaseGrabbedToy();
             }
 
             if (isLowering || isGrabbing)
@@ -232,22 +254,26 @@ public class ClawController : MonoBehaviour
                 isLowering = false;
                 isGrabbing = true;
 
-                if (targetToy != null && grabbedToy == null)
+                if (grabbedToy == null)
                 {
-                    Vector3 clawPosFlat = new Vector3(clawPivot.position.x, 0, clawPivot.position.z);
-                    Vector3 toyPosFlat = new Vector3(targetToy.transform.position.x, 0, targetToy.transform.position.z);
-
-                    if (Vector3.Distance(clawPosFlat, toyPosFlat) < grabDistance)
+                    GameObject candidate = FindNearestToy();
+                    if (candidate != null)
                     {
-                        grabbedToy = targetToy;
-                        grabbedToy.transform.SetParent(clawPivot);
-                        grabbedToy.transform.localPosition = new Vector3(0f, -0.5f, 0f);
+                        Vector3 clawPosFlat = new Vector3(clawPivot.position.x, 0, clawPivot.position.z);
+                        Vector3 toyPosFlat = new Vector3(candidate.transform.position.x, 0, candidate.transform.position.z);
 
-                        grabbedRigidbody = grabbedToy.GetComponent<Rigidbody>();
-                        if (grabbedRigidbody != null)
+                        if (Vector3.Distance(clawPosFlat, toyPosFlat) < grabDistance)
                         {
-                            grabbedRigidbody.isKinematic = true;
-                            grabbedRigidbody.useGravity = false;
+                            grabbedToy = candidate;
+                            grabbedToy.transform.SetParent(clawPivot);
+                            grabbedToy.transform.localPosition = new Vector3(0f, -0.5f, 0f);
+
+                            grabbedRigidbody = grabbedToy.GetComponent<Rigidbody>();
+                            if (grabbedRigidbody != null)
+                            {
+                                grabbedRigidbody.isKinematic = true;
+                                grabbedRigidbody.useGravity = false;
+                            }
                         }
                     }
                 }
@@ -267,7 +293,7 @@ public class ClawController : MonoBehaviour
             }
         }
 
-        if (!isLowering && !isGrabbing)
+        if (!isLowering && !isGrabbing && !isToyFalling)
         {
             Vector3 targetPos = waypoints[currentWaypointIndex];
             clawPivot.position = Vector3.MoveTowards(clawPivot.position, targetPos, moveSpeed * Time.deltaTime);
@@ -277,6 +303,11 @@ public class ClawController : MonoBehaviour
             }
         }
 
+        UpdateRopeAndHands();
+    }
+
+    void UpdateRopeAndHands()
+    {
         if (fakeRope != null)
         {
             Vector3 topPoint = new Vector3(clawPivot.position.x, ropeTopY, clawPivot.position.z);
@@ -295,9 +326,27 @@ public class ClawController : MonoBehaviour
         if (hand3 != null) hand3.localRotation = baseRot3 * Quaternion.Euler(angle3, 0, 0);
     }
 
+    void ReleaseGrabbedToy()
+    {
+        fallingToy = grabbedToy;
+        fallingToy.transform.SetParent(null);
+
+        if (grabbedRigidbody != null)
+        {
+            grabbedRigidbody.isKinematic = false;
+            grabbedRigidbody.useGravity = true;
+        }
+
+        isToyFalling = true;
+        fallTimer = 0f;
+
+        grabbedToy = null;
+        grabbedRigidbody = null;
+    }
+
     void HandleToyFalling()
     {
-        if (targetToy == null)
+        if (fallingToy == null)
         {
             isToyFalling = false;
             return;
@@ -305,48 +354,60 @@ public class ClawController : MonoBehaviour
 
         fallTimer += Time.deltaTime;
 
-        // Фаза 1: Падение в верхний отсек
-        if (fallTimer < fallDuration)
-        {
-            float progress = fallTimer / fallDuration;
-            float startY = dropZonePosition.y + 0.5f;
-            float endY = dropZonePosition.y - 0.3f;
-            float currentY = Mathf.Lerp(startY, endY, progress);
+        // Проверяем, не попала ли игрушка в зону отсека (по X и Z), пока она падает
+        Vector3 toyPos = fallingToy.transform.position;
+        float distXZ = Vector2.Distance(new Vector2(toyPos.x, toyPos.z), new Vector2(dropZonePosition.x, dropZonePosition.z));
 
-            targetToy.transform.position = new Vector3(
-                dropZonePosition.x,
-                currentY,
-                dropZonePosition.z
-            );
-        }
-        // Фаза 2: Телепортация в нижний отсек
-        else if (fallTimer < fallDuration + teleportDelayDuration)
+        if (distXZ <= dropZoneRadius)
         {
-            targetToy.transform.position = exitZonePosition;
-        }
-        // Фаза 3: Игрушка исчезает и счет увеличивается
-        else
-        {
-            // Скрываем игрушку
-            targetToy.SetActive(false);
-
-            // Увеличиваем счет
-            if (ScoreManager.Instance != null)
+            // Если игрушка в зоне отсека и её Y ниже, чем верх отсека (1.1), засасываем её
+            if (toyPos.y <= dropZonePosition.y + 0.2f)
             {
-                ScoreManager.Instance.AddPoint();
-            }
+                // Проваливается вниз
+                fallingToy.transform.position = exitZonePosition;
+                fallingToy.SetActive(false);
 
-            // Возвращаем в исходное состояние
-            if (grabbedRigidbody != null)
-            {
-                grabbedRigidbody.isKinematic = true;
-                grabbedRigidbody.useGravity = false;
-            }
+                if (ScoreManager.Instance != null) ScoreManager.Instance.AddPoint();
+                Debug.Log("[ClawController] Игрушка провалилась в отсек! Счет увеличен.");
 
+                isToyFalling = false;
+                fallTimer = 0f;
+                fallingToy = null;
+                return;
+            }
+        }
+
+        // Если игрушка просто упала на пол (на другой объект или дно), фиксируем её
+        // Мы не используем жесткий таймер, а проверяем, что она перестала двигаться вниз
+        Rigidbody rb = fallingToy.GetComponent<Rigidbody>();
+        if (rb != null && rb.linearVelocity.y > -0.1f && rb.linearVelocity.y < 0.1f && fallTimer > 0.5f)
+        {
+            // Игрушка остановилась. Оставляем её лежать, отключаем физику, чтобы не скользила.
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+
+            Debug.Log("[ClawController] Игрушка упала и осталась лежать.");
             isToyFalling = false;
             fallTimer = 0f;
+            fallingToy = null;
+            return;
+        }
 
-            Debug.Log("[ClawController] Игрушка исчезла, счет увеличен!");
+        // Страховка от зависания (если долго не падает)
+        if (fallTimer >= maxFallTime)
+        {
+            // Если она всё ещё в воздухе (на другой игрушке), просто оставляем её с физикой,
+            // чтобы она могла скатиться. Отключаем только если она уже на полу.
+            if (rb != null && fallingToy.transform.position.y <= 1.05f)
+            {
+                rb.isKinematic = true;
+                rb.useGravity = false;
+            }
+            isToyFalling = false;
+            fallTimer = 0f;
+            fallingToy = null;
         }
     }
 }
