@@ -8,7 +8,6 @@ public class SceneBuilder : MonoBehaviour
 
     void Start()
     {
-        // Автоматически вызываем BuildScene при запуске (в runtime)
         if (!isBuilt)
         {
             BuildScene();
@@ -25,6 +24,7 @@ public class SceneBuilder : MonoBehaviour
             if (obj != this.gameObject) DestroyImmediate(obj);
         }
 
+        // Камера
         GameObject camObj = new GameObject("Main Camera");
         Camera cam = camObj.AddComponent<Camera>();
         camObj.tag = "MainCamera";
@@ -35,11 +35,13 @@ public class SceneBuilder : MonoBehaviour
         camObj.transform.position = new Vector3(0f, 2.2f, -4.5f);
         camObj.transform.rotation = Quaternion.Euler(10f, 0f, 0f);
 
+        // Свет
         GameObject lightObj = new GameObject("Light");
         Light light = lightObj.AddComponent<Light>();
         light.type = LightType.Directional;
         lightObj.transform.rotation = Quaternion.Euler(50, -30, 0);
 
+        // Модель автомата
         GameObject clawMachinePrefab = Resources.Load<GameObject>("claw_machine");
         if (clawMachinePrefab != null)
         {
@@ -53,12 +55,14 @@ public class SceneBuilder : MonoBehaviour
             }
         }
 
+        // Невидимый пол
         GameObject invisibleFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         invisibleFloor.name = "InvisibleFloor";
         invisibleFloor.transform.position = new Vector3(0, 0.9f, 0);
         invisibleFloor.transform.localScale = new Vector3(4f, 0.2f, 4f);
         DestroyImmediate(invisibleFloor.GetComponent<Renderer>());
 
+        // Корова
         GameObject cowInstance = null;
         GameObject cowPrefab = Resources.Load<GameObject>("cow_plush_toy");
         if (cowPrefab != null)
@@ -77,6 +81,7 @@ public class SceneBuilder : MonoBehaviour
             Debug.LogWarning("Модель cow_plush_toy не найдена!");
         }
 
+        // GameManager
         GameObject gm = new GameObject("GameManager");
         ClawController controller = gm.AddComponent<ClawController>();
 
@@ -99,6 +104,7 @@ public class SceneBuilder : MonoBehaviour
             controller.targetToy = cowInstance;
         }
 
+        // UI
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -111,13 +117,80 @@ public class SceneBuilder : MonoBehaviour
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
 
-        CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ (A)", new Vector2(-250, 200), controller, true);
-        CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ (D)", new Vector2(250, 200), controller, false);
+        // Табло со счетом и иконкой животного
+        CreateScoreBoard(canvasObj.transform, "cow_icon");
 
-        // Добавляем экранный логгер для отладки на телефоне
-        new GameObject("OnScreenLogger").AddComponent<OnScreenLogger>();
+        // Кнопки
+        CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-400, 150), controller, true);
+        CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(-400, 300), controller, false);
 
-        Debug.Log("Сцена собрана с фиксированными настройками и экранным логгером!");
+        Debug.Log("Сцена собрана!");
+    }
+
+    private void CreateScoreBoard(Transform parent, string iconResourceName)
+    {
+        // Фон табло
+        GameObject scoreBoardObj = new GameObject("ScoreBoard");
+        scoreBoardObj.transform.SetParent(parent, false);
+
+        RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(400, 100);
+        // Захардкожено: Pos Y = -100
+        rt.anchoredPosition = new Vector2(0f, -100f);
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+
+        Image img = scoreBoardObj.AddComponent<Image>();
+        img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+
+        // --- Иконка животного (слева) ---
+        GameObject iconObj = new GameObject("TargetIcon");
+        iconObj.transform.SetParent(scoreBoardObj.transform, false);
+
+        RectTransform iconRt = iconObj.AddComponent<RectTransform>();
+        // Привязываем к левому краю табло
+        iconRt.anchorMin = new Vector2(0f, 0.5f);
+        iconRt.anchorMax = new Vector2(0f, 0.5f);
+        iconRt.pivot = new Vector2(0f, 0.5f);
+        iconRt.sizeDelta = new Vector2(80f, 80f);
+        iconRt.anchoredPosition = new Vector2(10f, 0f);
+
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.raycastTarget = false;
+        iconImg.preserveAspect = true;
+
+        Sprite iconSprite = Resources.Load<Sprite>(iconResourceName);
+        if (iconSprite == null)
+        {
+            // Если PNG нет — генерируем иконку кодом
+            iconSprite = CowIconGenerator.CreateCowIcon(128);
+            Debug.Log("[SceneBuilder] Спрайт не найден, сгенерирована процедурная иконка коровы.");
+        }
+
+        iconImg.sprite = iconSprite;
+        iconImg.color = Color.white;
+
+        // --- Текст счета (справа от иконки) ---
+        GameObject textObj = new GameObject("ScoreText");
+        textObj.transform.SetParent(scoreBoardObj.transform, false);
+
+        RectTransform textRt = textObj.AddComponent<RectTransform>();
+        // Сдвигаем текст вправо, чтобы не перекрывался иконкой
+        textRt.anchorMin = Vector2.zero;
+        textRt.anchorMax = Vector2.one;
+        textRt.offsetMin = new Vector2(100f, 0f); // отступ слева под иконку
+        textRt.offsetMax = new Vector2(-10f, 0f); // небольшой отступ справа
+
+        Text t = textObj.AddComponent<Text>();
+        t.text = "СЧЕТ: 0";
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.alignment = TextAnchor.MiddleCenter;
+        t.color = Color.yellow;
+        t.fontSize = 48;
+
+        // Добавляем ScoreManager
+        ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
+        scoreManager.scoreText = t;
     }
 
     private void CreateButton(Transform parent, string name, string text, Vector2 pos, ClawController controller, bool isGrab)
@@ -126,7 +199,7 @@ public class SceneBuilder : MonoBehaviour
         btnObj.transform.SetParent(parent, false);
 
         RectTransform rt = btnObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(400, 150);
+        rt.sizeDelta = new Vector2(200, 75);
         rt.anchoredPosition = pos;
         rt.anchorMin = new Vector2(0.5f, 0);
         rt.anchorMax = new Vector2(0.5f, 0);
@@ -149,7 +222,7 @@ public class SceneBuilder : MonoBehaviour
         t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         t.alignment = TextAnchor.MiddleCenter;
         t.color = Color.white;
-        t.fontSize = 32;
+        t.fontSize = 20;
 
         RectTransform trt = textObj.GetComponent<RectTransform>();
         trt.anchorMin = Vector2.zero;

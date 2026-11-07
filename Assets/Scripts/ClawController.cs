@@ -33,6 +33,10 @@ public class ClawController : MonoBehaviour
     public Transform hand3;
     public GameObject targetToy;
 
+    [Header("Зоны отсеков")]
+    public Vector3 dropZonePosition = new Vector3(-0.5f, 1.1f, 0f);
+    public Vector3 exitZonePosition = new Vector3(-0.2f, 0.6f, -0.5f);
+
     private float currentAngle = 0f;
     private Quaternion baseRot1, baseRot2, baseRot3;
     private Transform clawPivot;
@@ -51,6 +55,11 @@ public class ClawController : MonoBehaviour
     private bool isReleasingActive = false;
 
     private LineRenderer fakeRope;
+
+    private bool isToyFalling = false;
+    private float fallTimer = 0f;
+    private float fallDuration = 1.5f;
+    private float teleportDelayDuration = 0.5f;
 
     void Start()
     {
@@ -92,13 +101,8 @@ public class ClawController : MonoBehaviour
         fakeRope.positionCount = 2;
         fakeRope.useWorldSpace = true;
 
-        // ИСПРАВЛЕНИЕ: используем надежный шейдер для LineRenderer
         Material ropeMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
-        if (ropeMaterial == null)
-        {
-            Debug.LogWarning("[ClawController] Не удалось создать материал для троса, используется дефолтный");
-        }
-        else
+        if (ropeMaterial != null)
         {
             fakeRope.material = ropeMaterial;
             fakeRope.material.color = Color.black;
@@ -142,11 +146,10 @@ public class ClawController : MonoBehaviour
 
     public void StartGrabbing()
     {
-        Debug.Log("[ClawController] StartGrabbing вызван");
         isGrabbingActive = true;
         isReleasingActive = false;
 
-        if (!isLowering && !isGrabbing && grabbedToy == null)
+        if (!isLowering && !isGrabbing && grabbedToy == null && !isToyFalling)
         {
             isLowering = true;
         }
@@ -154,26 +157,29 @@ public class ClawController : MonoBehaviour
 
     public void StopGrabbing()
     {
-        Debug.Log("[ClawController] StopGrabbing вызван");
         isGrabbingActive = false;
     }
 
     public void StartReleasing()
     {
-        Debug.Log("[ClawController] StartReleasing вызван");
         isReleasingActive = true;
         isGrabbingActive = false;
     }
 
     public void StopReleasing()
     {
-        Debug.Log("[ClawController] StopReleasing вызван");
         isReleasingActive = false;
     }
 
     void Update()
     {
         if (!isInitialized || clawPivot == null || waypoints == null) return;
+
+        if (isToyFalling)
+        {
+            HandleToyFalling();
+            return;
+        }
 
         bool grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
         bool releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
@@ -199,6 +205,10 @@ public class ClawController : MonoBehaviour
                     grabbedRigidbody.isKinematic = false;
                     grabbedRigidbody.useGravity = true;
                 }
+
+                isToyFalling = true;
+                fallTimer = 0f;
+
                 grabbedToy = null;
                 grabbedRigidbody = null;
             }
@@ -283,5 +293,60 @@ public class ClawController : MonoBehaviour
         if (hand1 != null) hand1.localRotation = baseRot1 * Quaternion.Euler(angle1, 0, 0);
         if (hand2 != null) hand2.localRotation = baseRot2 * Quaternion.Euler(angle2, 0, 0);
         if (hand3 != null) hand3.localRotation = baseRot3 * Quaternion.Euler(angle3, 0, 0);
+    }
+
+    void HandleToyFalling()
+    {
+        if (targetToy == null)
+        {
+            isToyFalling = false;
+            return;
+        }
+
+        fallTimer += Time.deltaTime;
+
+        // Фаза 1: Падение в верхний отсек
+        if (fallTimer < fallDuration)
+        {
+            float progress = fallTimer / fallDuration;
+            float startY = dropZonePosition.y + 0.5f;
+            float endY = dropZonePosition.y - 0.3f;
+            float currentY = Mathf.Lerp(startY, endY, progress);
+
+            targetToy.transform.position = new Vector3(
+                dropZonePosition.x,
+                currentY,
+                dropZonePosition.z
+            );
+        }
+        // Фаза 2: Телепортация в нижний отсек
+        else if (fallTimer < fallDuration + teleportDelayDuration)
+        {
+            targetToy.transform.position = exitZonePosition;
+        }
+        // Фаза 3: Игрушка исчезает и счет увеличивается
+        else
+        {
+            // Скрываем игрушку
+            targetToy.SetActive(false);
+
+            // Увеличиваем счет
+            if (ScoreManager.Instance != null)
+            {
+                ScoreManager.Instance.AddPoint();
+            }
+
+            // Возвращаем в исходное состояние
+            if (grabbedRigidbody != null)
+            {
+                grabbedRigidbody.isKinematic = true;
+                grabbedRigidbody.useGravity = false;
+            }
+
+            isToyFalling = false;
+            fallTimer = 0f;
+
+            Debug.Log("[ClawController] Игрушка исчезла, счет увеличен!");
+        }
     }
 }
