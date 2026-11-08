@@ -108,16 +108,15 @@ public class SceneBuilder : MonoBehaviour
         // Большой текст по центру экрана
         CreateBigLevelText(canvasObj.transform, levelManager);
 
-        // Кнопки
-        CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-400, 150), controller, true);
-        CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(-400, 300), controller, false);
+        // Кнопки в ряд под автоматом
+        CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-120f, 60f), controller, true);
+        CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(120f, 60f), controller, false);
 
         Debug.Log("Сцена собрана!");
     }
 
     public void SpawnToys(ClawController controller)
     {
-        // Удаляем старые игрушки
         foreach (var toy in controller.toys)
         {
             if (toy != null) Destroy(toy);
@@ -129,7 +128,7 @@ public class SceneBuilder : MonoBehaviour
             "labubu_classic_-_collectible_3d_figure",
             "mario_soft_toy",
             "teddy_bear_3d_model",
-            "viral_monkey_plush_toy",  // Обезьянка вернулась на место Винни-Пуха
+            "viral_monkey_plush_toy",
             "kangaroo_kids_toy_plushie"
         };
 
@@ -212,75 +211,66 @@ public class SceneBuilder : MonoBehaviour
         }
     }
 
-    private void CreateScoreBoard(Transform parent, LevelManager levelManager)
+        private void CreateScoreBoard(Transform parent, LevelManager levelManager)
     {
         GameObject scoreBoardObj = new GameObject("ScoreBoard");
         scoreBoardObj.transform.SetParent(parent, false);
 
         RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(480, 100);
-        rt.anchoredPosition = new Vector2(0f, -140f);
+
+        // Задаем фиксированный размер (например, 480x100)
+        rt.sizeDelta = new Vector2(480f, 100f);
+
+        // Привязываем строго к центру по горизонтали и к верху экрана
         rt.anchorMin = new Vector2(0.5f, 1f);
         rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+
+        // Опускаем вниз от верхнего края на 40 пикселей
+        rt.anchoredPosition = new Vector2(0f, -40f);
 
         Image img = scoreBoardObj.AddComponent<Image>();
         img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
-        // Текст уровня
+        // Текст уровня (слева)
         GameObject levelTextObj = new GameObject("LevelText");
         levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
         RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
         lrt.anchorMin = new Vector2(0f, 0.5f);
         lrt.anchorMax = new Vector2(0f, 0.5f);
         lrt.pivot = new Vector2(0f, 0.5f);
-        lrt.anchoredPosition = new Vector2(15f, 0f);
-        lrt.sizeDelta = new Vector2(150f, 80f);
+        lrt.anchoredPosition = new Vector2(20f, 0f); // Отступ от левого края табло
+        lrt.sizeDelta = new Vector2(120f, 80f);
 
         Text levelText = levelTextObj.AddComponent<Text>();
-        levelText.text = "УРОВЕНЬ 1";
+        levelText.text = "LVL: 1";
         levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         levelText.alignment = TextAnchor.MiddleLeft;
         levelText.color = Color.white;
-        levelText.fontSize = 28;
+        levelText.fontSize = 36;
 
-        // Контейнер иконок
+        // Контейнер иконок (в центре табло)
         GameObject containerObj = new GameObject("IconsContainer");
         containerObj.transform.SetParent(scoreBoardObj.transform, false);
 
         RectTransform crt = containerObj.AddComponent<RectTransform>();
         crt.anchorMin = new Vector2(0f, 0.5f);
-        crt.anchorMax = new Vector2(1f, 0.5f);
-        crt.pivot = new Vector2(0f, 0.5f);
-        crt.offsetMin = new Vector2(150f, -35f);
-        crt.offsetMax = new Vector2(-130f, 35f);
+        crt.anchorMax = new Vector2(1f, 0.5f); // Растягиваем по ширине табло
+        crt.pivot = new Vector2(0.5f, 0.5f);
+        crt.offsetMin = new Vector2(140f, -35f); // Отступ слева (после текста)
+        crt.offsetMax = new Vector2(-20f, 35f);  // Отступ справа
 
         HorizontalLayoutGroup layout = containerObj.AddComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleLeft;
-        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.MiddleCenter; // Иконки ровно по центру
+        layout.spacing = 15f;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        // Текст счета
-        GameObject scoreTextObj = new GameObject("ScoreText");
-        scoreTextObj.transform.SetParent(scoreBoardObj.transform, false);
-        RectTransform srt = scoreTextObj.AddComponent<RectTransform>();
-        srt.anchorMin = new Vector2(1f, 0.5f);
-        srt.anchorMax = new Vector2(1f, 0.5f);
-        srt.pivot = new Vector2(1f, 0.5f);
-        srt.anchoredPosition = new Vector2(-15f, 0f);
-        srt.sizeDelta = new Vector2(130f, 80f);
-
-        Text scoreText = scoreTextObj.AddComponent<Text>();
-        scoreText.text = "СЧЕТ: 0";
-        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        scoreText.alignment = TextAnchor.MiddleRight;
-        scoreText.color = Color.yellow;
-        scoreText.fontSize = 28;
-
+        // Отключаем счет (чтобы не выдавал ошибку)
         ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
-        scoreManager.scoreText = scoreText;
+        scoreManager.scoreText = null;
 
         levelManager.levelText = levelText;
         levelManager.iconsContainer = containerObj.transform;
@@ -298,7 +288,7 @@ public class SceneBuilder : MonoBehaviour
         rt.sizeDelta = new Vector2(800, 300);
 
         Text t = textObj.AddComponent<Text>();
-        t.text = "УРОВЕНЬ 1";
+        t.text = "LVL: 1";
         t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         t.alignment = TextAnchor.MiddleCenter;
         t.color = Color.white;
@@ -320,7 +310,7 @@ public class SceneBuilder : MonoBehaviour
 
         RectTransform rt = btnObj.AddComponent<RectTransform>();
         rt.sizeDelta = new Vector2(200, 75);
-        rt.anchoredPosition = pos;
+        rt.anchoredPosition = pos; // <-- Позиция берется из аргумента
         rt.anchorMin = new Vector2(0.5f, 0);
         rt.anchorMax = new Vector2(0.5f, 0);
 

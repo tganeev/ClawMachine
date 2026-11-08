@@ -2,6 +2,7 @@ using UnityEngine;
 
 public static class SimpleIconGenerator
 {
+    // Вспомогательный метод для создания прозрачной текстуры
     private static Color[] CreateTransparentCanvas(int size)
     {
         Color[] px = new Color[size * size];
@@ -10,6 +11,7 @@ public static class SimpleIconGenerator
         return px;
     }
 
+    // Рисование эллипса
     private static void DrawEllipse(Color[] px, int size, float cx, float cy, float rx, float ry, Color color)
     {
         int minX = Mathf.FloorToInt(cx - rx);
@@ -30,6 +32,7 @@ public static class SimpleIconGenerator
         }
     }
 
+    // Рисование прямоугольника
     private static void DrawRect(Color[] px, int size, int x, int y, int w, int h, Color color)
     {
         for (int i = 0; i < w; i++)
@@ -42,6 +45,7 @@ public static class SimpleIconGenerator
             }
     }
 
+    // Рисование линии (для галочек и деталей)
     private static void DrawLine(Color[] px, int size, Vector2 start, Vector2 end, int thickness, Color color)
     {
         float distance = Vector2.Distance(start, end);
@@ -68,6 +72,46 @@ public static class SimpleIconGenerator
         }
     }
 
+    // Вспомогательный метод для заливки полигона (силуэта)
+    private static void DrawPolygon(Color[] px, int size, Vector2[] points, Color color)
+    {
+        int minY = size, maxY = 0;
+        foreach (var p in points)
+        {
+            if (p.y < minY) minY = Mathf.FloorToInt(p.y);
+            if (p.y > maxY) maxY = Mathf.CeilToInt(p.y);
+        }
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            var nodes = new System.Collections.Generic.List<float>();
+            for (int i = 0; i < points.Length; i++)
+            {
+                Vector2 p1 = points[i];
+                Vector2 p2 = points[(i + 1) % points.Length];
+
+                if ((p1.y < y && p2.y >= y) || (p2.y < y && p1.y >= y))
+                {
+                    float x = p1.x + (y - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
+                    nodes.Add(x);
+                }
+            }
+
+            nodes.Sort();
+            for (int i = 0; i < nodes.Count; i += 2)
+            {
+                int startX = Mathf.RoundToInt(nodes[i]);
+                int endX = Mathf.RoundToInt(nodes[i + 1]);
+                for (int x = startX; x <= endX; x++)
+                {
+                    if (x >= 0 && x < size && y >= 0 && y < size)
+                        px[y * size + x] = color;
+                }
+            }
+        }
+    }
+
+    // Создание спрайта из массива пикселей
     private static Sprite CreateSprite(Color[] px, int size)
     {
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -78,6 +122,7 @@ public static class SimpleIconGenerator
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
+    // --- ИКОНКА МАРИО ---
     public static Sprite CreateMarioIcon(int size)
     {
         Color[] px = CreateTransparentCanvas(size);
@@ -130,6 +175,7 @@ public static class SimpleIconGenerator
         return CreateSprite(px, size);
     }
 
+    // --- ИКОНКА МИШКИ ---
     public static Sprite CreateBearIcon(int size)
     {
         Color[] px = CreateTransparentCanvas(size);
@@ -148,103 +194,110 @@ public static class SimpleIconGenerator
         return CreateSprite(px, size);
     }
 
+    // --- ИКОНКА ЛАБУБУ (Коричневое пятно / Винни-Пух) ---
     public static Sprite CreateLabubuIcon(int size)
     {
         Color[] px = CreateTransparentCanvas(size);
         float cx = size * 0.5f, cy = size * 0.45f;
-        Color hairColor = new Color(0.45f, 0.25f, 0.15f);
-        Color skinColor = new Color(0.95f, 0.8f, 0.65f);
+        Color darkBrown = new Color(0.4f, 0.2f, 0.1f);
+        Color lightFace = new Color(0.9f, 0.7f, 0.5f);
 
-        // 1. Пушистые волосы по бокам
-        DrawEllipse(px, size, cx - size * 0.25f, cy + size * 0.05f, size * 0.15f, size * 0.25f, hairColor);
-        DrawEllipse(px, size, cx + size * 0.25f, cy + size * 0.05f, size * 0.15f, size * 0.25f, hairColor);
-
-        // 2. Лицо
-        DrawEllipse(px, size, cx, cy, size * 0.18f, size * 0.22f, skinColor);
-
-        // 3. Волосы сверху (челка)
-        DrawEllipse(px, size, cx, cy + size * 0.22f, size * 0.22f, size * 0.12f, hairColor);
-
-        // 4. Глаза (маленькие черные точки)
-        DrawEllipse(px, size, cx - size * 0.06f, cy + size * 0.08f, size * 0.02f, size * 0.03f, Color.black);
-        DrawEllipse(px, size, cx + size * 0.06f, cy + size * 0.08f, size * 0.02f, size * 0.03f, Color.black);
-
-        // 5. Рот (маленький черный овал)
-        DrawEllipse(px, size, cx, cy - size * 0.08f, size * 0.04f, size * 0.03f, Color.black);
+        DrawEllipse(px, size, cx - size * 0.3f, cy, size * 0.12f, size * 0.15f, darkBrown);
+        DrawEllipse(px, size, cx + size * 0.3f, cy, size * 0.12f, size * 0.15f, darkBrown);
+        DrawEllipse(px, size, cx, cy, size * 0.25f, size * 0.25f, darkBrown);
+        DrawEllipse(px, size, cx, cy - size * 0.05f, size * 0.18f, size * 0.18f, lightFace);
+        DrawEllipse(px, size, cx - size * 0.08f, cy + size * 0.05f, size * 0.03f, size * 0.04f, Color.black);
+        DrawEllipse(px, size, cx + size * 0.08f, cy + size * 0.05f, size * 0.03f, size * 0.04f, Color.black);
+        DrawEllipse(px, size, cx, cy - size * 0.12f, size * 0.08f, size * 0.03f, Color.black);
 
         return CreateSprite(px, size);
     }
 
-    public static Sprite CreateKangarooIcon(int size)
-    {
-        Color[] px = CreateTransparentCanvas(size);
-        float cx = size * 0.5f, cy = size * 0.45f;
-        Color outline = new Color(0.15f, 0.25f, 0.4f);
-        Color body = new Color(0.6f, 0.4f, 0.2f);
-
-        int thick = (int)(size * 0.03f);
-
-        DrawLine(px, size, new Vector2(cx + size * 0.1f, cy - size * 0.15f), new Vector2(cx + size * 0.35f, cy - size * 0.15f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.35f, cy - size * 0.15f), new Vector2(cx + size * 0.35f, cy + size * 0.05f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.05f, cy - size * 0.15f), new Vector2(cx + size * 0.15f, cy - size * 0.35f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.15f, cy - size * 0.35f), new Vector2(cx + size * 0.15f, cy - size * 0.45f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.1f, cy - size * 0.15f), new Vector2(cx - size * 0.15f, cy + size * 0.1f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.15f, cy + size * 0.1f), new Vector2(cx - size * 0.1f, cy + size * 0.25f), thick, outline);
-        DrawEllipse(px, size, cx - size * 0.15f, cy + size * 0.25f, size * 0.15f, size * 0.12f, outline);
-        DrawEllipse(px, size, cx - size * 0.28f, cy + size * 0.22f, size * 0.08f, size * 0.06f, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.12f, cy + size * 0.32f), new Vector2(cx - size * 0.08f, cy + size * 0.45f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.08f, cy + size * 0.45f), new Vector2(cx - size * 0.18f, cy + size * 0.4f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.15f, cy), new Vector2(cx - size * 0.25f, cy - size * 0.15f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.25f, cy - size * 0.15f), new Vector2(cx - size * 0.25f, cy - size * 0.25f), thick, outline);
-
-        DrawEllipse(px, size, cx, cy - size * 0.1f, size * 0.15f, size * 0.2f, body);
-        DrawEllipse(px, size, cx + size * 0.1f, cy - size * 0.2f, size * 0.15f, size * 0.15f, body);
-        DrawEllipse(px, size, cx - size * 0.15f, cy + size * 0.25f, size * 0.13f, size * 0.1f, body);
-        DrawEllipse(px, size, cx - size * 0.28f, cy + size * 0.22f, size * 0.06f, size * 0.04f, body);
-        DrawLine(px, size, new Vector2(cx + size * 0.05f, cy - size * 0.15f), new Vector2(cx + size * 0.15f, cy - size * 0.35f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx - size * 0.15f, cy), new Vector2(cx - size * 0.25f, cy - size * 0.15f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx + size * 0.1f, cy - size * 0.15f), new Vector2(cx + size * 0.35f, cy - size * 0.15f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx + size * 0.35f, cy - size * 0.15f), new Vector2(cx + size * 0.35f, cy + size * 0.05f), thick - 1, body);
-        DrawEllipse(px, size, cx - size * 0.18f, cy + size * 0.28f, size * 0.015f, size * 0.015f, Color.black);
-
-        return CreateSprite(px, size);
-    }
-
+    // --- ИКОНКА ОБЕЗЬЯНЫ (Анфас с улыбкой и хохолком) ---
     public static Sprite CreateMonkeyIcon(int size)
     {
         Color[] px = CreateTransparentCanvas(size);
         float cx = size * 0.5f, cy = size * 0.45f;
-        Color outline = new Color(0.1f, 0.1f, 0.1f);
-        Color body = new Color(0.85f, 0.8f, 0.7f);
-        Color face = new Color(1f, 0.7f, 0.7f);
-        Color darkPatch = new Color(0.6f, 0.5f, 0.4f);
 
-        int thick = (int)(size * 0.03f);
+        Color brown = new Color(0.45f, 0.25f, 0.15f);
+        Color lightFace = new Color(0.95f, 0.9f, 0.75f);
+        Color innerEar = new Color(0.8f, 0.6f, 0.5f);
+        Color black = Color.black;
+        Color white = Color.white;
+        Color mouthDark = new Color(0.3f, 0.1f, 0.1f);
+        Color tongue = new Color(0.9f, 0.4f, 0.4f);
 
-        DrawLine(px, size, new Vector2(cx - size * 0.1f, cy - size * 0.15f), new Vector2(cx - size * 0.35f, cy - size * 0.15f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.35f, cy - size * 0.15f), new Vector2(cx - size * 0.35f, cy + size * 0.25f), thick, outline);
-        DrawLine(px, size, new Vector2(cx - size * 0.35f, cy + size * 0.25f), new Vector2(cx - size * 0.25f, cy + size * 0.35f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.05f, cy - size * 0.15f), new Vector2(cx + size * 0.15f, cy - size * 0.3f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.15f, cy - size * 0.3f), new Vector2(cx + size * 0.25f, cy - size * 0.4f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.25f, cy - size * 0.4f), new Vector2(cx + size * 0.1f, cy - size * 0.45f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.05f, cy - size * 0.15f), new Vector2(cx + size * 0.15f, cy + size * 0.15f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.15f, cy + size * 0.15f), new Vector2(cx + size * 0.1f, cy + size * 0.3f), thick, outline);
-        DrawEllipse(px, size, cx + size * 0.05f, cy + size * 0.3f, size * 0.15f, size * 0.15f, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.1f, cy + size * 0.1f), new Vector2(cx + size * 0.2f, cy - size * 0.15f), thick, outline);
-        DrawLine(px, size, new Vector2(cx + size * 0.2f, cy - size * 0.15f), new Vector2(cx + size * 0.2f, cy - size * 0.3f), thick, outline);
+        DrawEllipse(px, size, cx - size * 0.35f, cy + size * 0.05f, size * 0.12f, size * 0.15f, brown);
+        DrawEllipse(px, size, cx + size * 0.35f, cy + size * 0.05f, size * 0.12f, size * 0.15f, brown);
+        DrawEllipse(px, size, cx - size * 0.35f, cy + size * 0.05f, size * 0.08f, size * 0.1f, innerEar);
+        DrawEllipse(px, size, cx + size * 0.35f, cy + size * 0.05f, size * 0.08f, size * 0.1f, innerEar);
 
-        DrawEllipse(px, size, cx, cy - size * 0.15f, size * 0.15f, size * 0.15f, body);
-        DrawEllipse(px, size, cx + size * 0.05f, cy + size * 0.15f, size * 0.12f, size * 0.15f, body);
-        DrawEllipse(px, size, cx + size * 0.05f, cy + size * 0.3f, size * 0.13f, size * 0.13f, body);
-        DrawEllipse(px, size, cx + size * 0.15f, cy + size * 0.28f, size * 0.06f, size * 0.08f, face);
-        DrawLine(px, size, new Vector2(cx + size * 0.05f, cy - size * 0.15f), new Vector2(cx + size * 0.15f, cy - size * 0.3f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx + size * 0.1f, cy + size * 0.1f), new Vector2(cx + size * 0.2f, cy - size * 0.15f), thick - 1, body);
-        DrawEllipse(px, size, cx - size * 0.02f, cy - size * 0.15f, size * 0.08f, size * 0.08f, darkPatch);
-        DrawLine(px, size, new Vector2(cx - size * 0.1f, cy - size * 0.15f), new Vector2(cx - size * 0.35f, cy - size * 0.15f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx - size * 0.35f, cy - size * 0.15f), new Vector2(cx - size * 0.35f, cy + size * 0.25f), thick - 1, body);
-        DrawLine(px, size, new Vector2(cx - size * 0.35f, cy + size * 0.25f), new Vector2(cx - size * 0.25f, cy + size * 0.35f), thick - 1, body);
-        DrawEllipse(px, size, cx + size * 0.08f, cy + size * 0.35f, size * 0.02f, size * 0.02f, Color.black);
-        DrawEllipse(px, size, cx + size * 0.2f, cy + size * 0.28f, size * 0.015f, size * 0.015f, Color.black);
+        DrawEllipse(px, size, cx - size * 0.05f, cy + size * 0.32f, size * 0.06f, size * 0.1f, brown);
+        DrawEllipse(px, size, cx + size * 0.05f, cy + size * 0.32f, size * 0.06f, size * 0.1f, brown);
+        DrawEllipse(px, size, cx, cy + size * 0.35f, size * 0.05f, size * 0.08f, brown);
+
+        DrawEllipse(px, size, cx, cy, size * 0.35f, size * 0.32f, brown);
+        DrawEllipse(px, size, cx, cy - size * 0.05f, size * 0.26f, size * 0.22f, lightFace);
+
+        DrawEllipse(px, size, cx - size * 0.12f, cy + size * 0.08f, size * 0.07f, size * 0.08f, black);
+        DrawEllipse(px, size, cx + size * 0.12f, cy + size * 0.08f, size * 0.07f, size * 0.08f, black);
+        DrawEllipse(px, size, cx - size * 0.10f, cy + size * 0.1f, size * 0.02f, size * 0.02f, white);
+        DrawEllipse(px, size, cx + size * 0.14f, cy + size * 0.1f, size * 0.02f, size * 0.02f, white);
+
+        DrawEllipse(px, size, cx - size * 0.05f, cy - size * 0.02f, size * 0.015f, size * 0.01f, black);
+        DrawEllipse(px, size, cx + size * 0.05f, cy - size * 0.02f, size * 0.015f, size * 0.01f, black);
+
+        DrawEllipse(px, size, cx, cy - size * 0.15f, size * 0.15f, size * 0.1f, black);
+        DrawEllipse(px, size, cx, cy - size * 0.1f, size * 0.13f, size * 0.08f, lightFace);
+
+        DrawEllipse(px, size, cx, cy - size * 0.2f, size * 0.06f, size * 0.04f, tongue);
+        DrawLine(px, size, new Vector2(cx, cy - size * 0.2f), new Vector2(cx, cy - size * 0.24f), 1, black);
+
+        return CreateSprite(px, size);
+    }
+
+    // --- ИКОНКА КЕНГУРУ (Голова анфас, как на скрине) ---
+    public static Sprite CreateKangarooIcon(int size)
+    {
+        Color[] px = CreateTransparentCanvas(size);
+        float cx = size * 0.5f, cy = size * 0.45f;
+
+        Color darkBrown = new Color(0.35f, 0.2f, 0.1f);
+        Color tan = new Color(0.85f, 0.6f, 0.2f);
+        Color lightTan = new Color(0.95f, 0.8f, 0.55f);
+        Color noseColor = new Color(0.35f, 0.15f, 0.1f);
+        Color eyeColor = new Color(0.15f, 0.1f, 0.05f);
+
+        // Уши
+        DrawEllipse(px, size, cx - size * 0.22f, cy + size * 0.25f, size * 0.18f, size * 0.28f, darkBrown);
+        DrawEllipse(px, size, cx + size * 0.22f, cy + size * 0.25f, size * 0.18f, size * 0.28f, darkBrown);
+
+        // Внутренняя часть ушей
+        DrawEllipse(px, size, cx - size * 0.22f, cy + size * 0.25f, size * 0.12f, size * 0.22f, tan);
+        DrawEllipse(px, size, cx + size * 0.22f, cy + size * 0.25f, size * 0.12f, size * 0.22f, tan);
+
+        // Голова
+        DrawEllipse(px, size, cx, cy - size * 0.02f, size * 0.26f, size * 0.30f, tan);
+
+        // Морда
+        DrawEllipse(px, size, cx, cy - size * 0.1f, size * 0.10f, size * 0.24f, lightTan);
+        DrawEllipse(px, size, cx - size * 0.15f, cy - size * 0.12f, size * 0.08f, size * 0.18f, lightTan);
+        DrawEllipse(px, size, cx + size * 0.15f, cy - size * 0.12f, size * 0.08f, size * 0.18f, lightTan);
+
+        // Глаза
+        DrawEllipse(px, size, cx - size * 0.13f, cy + size * 0.02f, size * 0.05f, size * 0.02f, eyeColor);
+        DrawEllipse(px, size, cx + size * 0.13f, cy + size * 0.02f, size * 0.05f, size * 0.02f, eyeColor);
+
+        // Нос
+        DrawEllipse(px, size, cx, cy - size * 0.22f, size * 0.08f, size * 0.06f, noseColor);
+
+        // Ноздри
+        Color nostrilColor = new Color(0.2f, 0.1f, 0.05f);
+        DrawEllipse(px, size, cx - size * 0.03f, cy - size * 0.21f, size * 0.015f, size * 0.02f, nostrilColor);
+        DrawEllipse(px, size, cx + size * 0.03f, cy - size * 0.21f, size * 0.015f, size * 0.02f, nostrilColor);
+
+        // Рот
+        DrawEllipse(px, size, cx, cy - size * 0.32f, size * 0.04f, size * 0.01f, tan);
 
         return CreateSprite(px, size);
     }

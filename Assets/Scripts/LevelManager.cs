@@ -55,7 +55,7 @@ public class LevelManager : MonoBehaviour
             return;
         }
 
-        if (levelText != null) levelText.text = $"УРОВЕНЬ {level}";
+        if (levelText != null) levelText.text = $"lvl: {level}";
 
         ShowBigText($"УРОВЕНЬ {level}", 2f);
 
