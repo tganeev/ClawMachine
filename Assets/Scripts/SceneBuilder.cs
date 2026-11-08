@@ -8,40 +8,50 @@ public class SceneBuilder : MonoBehaviour
 
     void Start()
     {
-        if (!isBuilt)
+        // Создаем стартовое меню при запуске
+        if (MainMenuManager.Instance == null)
         {
-            BuildScene();
-            isBuilt = true;
+            GameObject menuObj = new GameObject("MainMenuManager");
+            menuObj.AddComponent<MainMenuManager>();
         }
     }
 
-    [ContextMenu("Собрать сцену заново")]
-    public void BuildScene()
+    // Вызывается из меню по кнопке "Играть"
+    public void BuildGame()
     {
+        if (isBuilt) return;
+
+        Debug.Log("[SceneBuilder] Очистка старой сцены и сборка новой...");
+
+        // 1. УДАЛЯЕМ ВСЁ СТАРОЕ ИЗ СЦЕНЫ (чтобы не было двух клешней)
         GameObject[] allObjects = FindObjectsOfType<GameObject>();
         foreach (GameObject obj in allObjects)
         {
-            if (obj != this.gameObject) DestroyImmediate(obj);
+            // Оставляем только сам SceneBuilder и меню (оно само себя удалит)
+            if (obj != this.gameObject && obj.name != "MainMenuManager" && obj.name != "MenuCanvas")
+            {
+                Destroy(obj);
+            }
         }
 
-        // Камера
+        // 2. СОЗДАЕМ КАМЕРУ (как было изначально)
         GameObject camObj = new GameObject("Main Camera");
         Camera cam = camObj.AddComponent<Camera>();
         camObj.tag = "MainCamera";
         cam.clearFlags = CameraClearFlags.SolidColor;
-        cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
+        cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f); // Темный фон
         cam.orthographic = false;
         cam.fieldOfView = 50f;
         camObj.transform.position = new Vector3(0f, 2.2f, -4.5f);
         camObj.transform.rotation = Quaternion.Euler(10f, 0f, 0f);
 
-        // Свет
+        // 3. СОЗДАЕМ СВЕТ (как было изначально)
         GameObject lightObj = new GameObject("Light");
         Light light = lightObj.AddComponent<Light>();
         light.type = LightType.Directional;
         lightObj.transform.rotation = Quaternion.Euler(50, -30, 0);
 
-        // Модель автомата
+        // 4. МОДЕЛЬ АВТОМАТА
         GameObject clawMachinePrefab = Resources.Load<GameObject>("claw_machine");
         if (clawMachinePrefab != null)
         {
@@ -55,14 +65,14 @@ public class SceneBuilder : MonoBehaviour
             }
         }
 
-        // Невидимый пол
+        // 5. НЕВИДИМЫЙ ПОЛ
         GameObject invisibleFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         invisibleFloor.name = "InvisibleFloor";
         invisibleFloor.transform.position = new Vector3(0, 0.9f, 0);
         invisibleFloor.transform.localScale = new Vector3(4f, 0.2f, 4f);
         DestroyImmediate(invisibleFloor.GetComponent<Renderer>());
 
-        // GameManager
+        // 6. ИГРОВАЯ ЛОГИКА (Клешня)
         GameObject gm = new GameObject("GameManager");
         ClawController controller = gm.AddComponent<ClawController>();
 
@@ -75,24 +85,26 @@ public class SceneBuilder : MonoBehaviour
         controller.moveSpeed = 0.7f;
         controller.offsetX = 0f;
         controller.offsetZ = 0f;
-        controller.minY = 1.4f; // Захардкожено
+        controller.minY = 1.4f;
         controller.lowerSpeed = 0.8f;
         controller.grabDistance = 0.3f;
         controller.ropeTopY = 3.5f;
 
-        // Игрушки (вызываем один раз при старте)
+        // 7. ИГРУШКИ
         SpawnToys(controller);
 
-        // Менеджер уровней
+        // 8. МЕНЕДЖЕР УРОВНЕЙ
         GameObject lmObj = new GameObject("LevelManager");
         LevelManager levelManager = lmObj.AddComponent<LevelManager>();
         levelManager.clawController = controller;
         levelManager.sceneBuilder = this;
 
-        // UI
+        // 9. ИГРОВОЙ UI
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 1;
+
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1080, 1920);
@@ -102,17 +114,14 @@ public class SceneBuilder : MonoBehaviour
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
 
-        // Табло с уровнем, иконками и счетом
+        // 10. ТАБЛО И КНОПКИ
         CreateScoreBoard(canvasObj.transform, levelManager);
-
-        // Большой текст по центру экрана
         CreateBigLevelText(canvasObj.transform, levelManager);
-
-        // Кнопки в ряд под автоматом
         CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-120f, 60f), controller, true);
         CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(120f, 60f), controller, false);
 
-        Debug.Log("Сцена собрана!");
+        isBuilt = true;
+        Debug.Log("[SceneBuilder] Игра успешно запущена!");
     }
 
     public void SpawnToys(ClawController controller)
@@ -227,7 +236,6 @@ public class SceneBuilder : MonoBehaviour
         Image img = scoreBoardObj.AddComponent<Image>();
         img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
-        // Текст уровня
         GameObject levelTextObj = new GameObject("LevelText");
         levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
         RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
@@ -244,7 +252,6 @@ public class SceneBuilder : MonoBehaviour
         levelText.color = Color.white;
         levelText.fontSize = 36;
 
-        // Контейнер иконок
         GameObject containerObj = new GameObject("IconsContainer");
         containerObj.transform.SetParent(scoreBoardObj.transform, false);
 
