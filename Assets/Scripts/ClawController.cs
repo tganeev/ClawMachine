@@ -7,6 +7,10 @@ public class ClawController : MonoBehaviour
     public float maxAngle = 55f;
     public float speed = 100f;
 
+    [Header("Настройки ЭМГ (Только для режимов ЭМГ и СПППР)")]
+    public float activationThreshold = 0.5f; // Порог активации
+    public bool isProportionalMode = false;  // Пропорциональный режим (сила нажатия = скорость)
+
     [Header("Инверсия для каждого пальца")]
     public bool invertHand1 = false;
     public bool invertHand2 = false;
@@ -21,9 +25,8 @@ public class ClawController : MonoBehaviour
     public float offsetZ = 0f;
 
     [Header("Опускание и захват")]
-    [HideInInspector] public float minY = 1.4f; // Захардкожено и скрыто из инспектора
+    [HideInInspector] public float minY = 1.4f;
     public float lowerSpeed = 2f;
-    [Tooltip("Захардкожено: 0.3")]
     public float grabDistance = 0.3f;
 
     [Header("Высота потолка")]
@@ -36,12 +39,8 @@ public class ClawController : MonoBehaviour
     public List<GameObject> toys = new List<GameObject>();
 
     [Header("Координаты отсеков")]
-    [Tooltip("Центр верхнего ящика (куда падает игрушка)")]
     public Vector3 dropZonePosition = new Vector3(-0.5f, 1.1f, 0f);
-
-    [Tooltip("Центр нижнего отсека (куда проваливается игрушка)")]
     public Vector3 bottomChutePosition = new Vector3(-0.5f, 0.6f, -0.5f);
-
     public float dropZoneRadius = 0.4f;
 
     [Header("Параметры анимации")]
@@ -243,22 +242,47 @@ public class ClawController : MonoBehaviour
             return;
         }
 
-        bool grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
-        bool releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
+        bool grabActive = false;
+        bool releaseActive = false;
 
-        if (grabActive)
+        // --- ЛОГИКА ВВОДА (ЭМГ, СПППР или Кнопки) ---
+        if (InputManager.Instance != null && InputManager.Instance.currentMode != InputManager.ControlMode.DirectButtons)
         {
-            currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
+            float ch1 = InputManager.Instance.GetChannel1();
+            float ch2 = InputManager.Instance.GetChannel2();
 
-            if (!isLowering && !isGrabbing && grabbedToy == null)
+            if (isProportionalMode)
             {
-                isLowering = true;
+                if (ch1 > 0.05f) { grabActive = true; currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed * ch1); }
+                if (ch2 > 0.05f) { releaseActive = true; currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed * ch2); }
+            }
+            else
+            {
+                grabActive = ch1 > activationThreshold;
+                releaseActive = ch2 > activationThreshold;
+
+                if (grabActive) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
+                if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
             }
         }
-        else if (releaseActive)
+        else
         {
-            currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
+            // Обычные кнопки UI или клавиатура
+            grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
+            releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
 
+            if (grabActive) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
+            else if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
+        }
+
+        // --- ЛОГИКА ДВИЖЕНИЯ ---
+        if (grabActive && !isLowering && !isGrabbing && grabbedToy == null)
+        {
+            isLowering = true;
+        }
+
+        if (releaseActive)
+        {
             if (grabbedToy != null)
             {
                 ReleaseGrabbedToy();
@@ -374,11 +398,11 @@ public class ClawController : MonoBehaviour
 
         if (distXZ <= dropZoneRadius && toyPos.y < (dropZonePosition.y + 0.5f))
         {
-            fallPhase = 0; // В отсек
+            fallPhase = 0;
         }
         else
         {
-            fallPhase = -1; // На пол
+            fallPhase = -1;
 
             Renderer[] renderers = fallingToy.GetComponentsInChildren<Renderer>();
             if (renderers.Length > 0)
