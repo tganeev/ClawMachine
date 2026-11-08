@@ -129,7 +129,7 @@ public class SceneBuilder : MonoBehaviour
             "labubu_classic_-_collectible_3d_figure",
             "mario_soft_toy",
             "teddy_bear_3d_model",
-            "Vinnie_the_Pooh",
+            "viral_monkey_plush_toy",  // Обезьянка вернулась на место Винни-Пуха
             "kangaroo_kids_toy_plushie"
         };
 
@@ -139,7 +139,7 @@ public class SceneBuilder : MonoBehaviour
             baseRot,
             Quaternion.Euler(-90f, 90f, 90f),
             Quaternion.Euler(-90f, 10f, 90f),
-            Quaternion.Euler(0f, 0f, 0f),
+            baseRot,
             baseRot
         };
 
@@ -218,8 +218,8 @@ public class SceneBuilder : MonoBehaviour
         scoreBoardObj.transform.SetParent(parent, false);
 
         RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(600, 120);
-        rt.anchoredPosition = new Vector2(0f, -100f);
+        rt.sizeDelta = new Vector2(480, 100);
+        rt.anchoredPosition = new Vector2(0f, -140f);
         rt.anchorMin = new Vector2(0.5f, 1f);
         rt.anchorMax = new Vector2(0.5f, 1f);
 
@@ -234,14 +234,14 @@ public class SceneBuilder : MonoBehaviour
         lrt.anchorMax = new Vector2(0f, 0.5f);
         lrt.pivot = new Vector2(0f, 0.5f);
         lrt.anchoredPosition = new Vector2(15f, 0f);
-        lrt.sizeDelta = new Vector2(160f, 100f);
+        lrt.sizeDelta = new Vector2(150f, 80f);
 
         Text levelText = levelTextObj.AddComponent<Text>();
         levelText.text = "УРОВЕНЬ 1";
         levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         levelText.alignment = TextAnchor.MiddleLeft;
         levelText.color = Color.white;
-        levelText.fontSize = 32;
+        levelText.fontSize = 28;
 
         // Контейнер иконок
         GameObject containerObj = new GameObject("IconsContainer");
@@ -251,8 +251,8 @@ public class SceneBuilder : MonoBehaviour
         crt.anchorMin = new Vector2(0f, 0.5f);
         crt.anchorMax = new Vector2(1f, 0.5f);
         crt.pivot = new Vector2(0f, 0.5f);
-        crt.offsetMin = new Vector2(180f, -40f);
-        crt.offsetMax = new Vector2(-160f, 40f);
+        crt.offsetMin = new Vector2(150f, -35f);
+        crt.offsetMax = new Vector2(-130f, 35f);
 
         HorizontalLayoutGroup layout = containerObj.AddComponent<HorizontalLayoutGroup>();
         layout.childAlignment = TextAnchor.MiddleLeft;
@@ -270,14 +270,14 @@ public class SceneBuilder : MonoBehaviour
         srt.anchorMax = new Vector2(1f, 0.5f);
         srt.pivot = new Vector2(1f, 0.5f);
         srt.anchoredPosition = new Vector2(-15f, 0f);
-        srt.sizeDelta = new Vector2(150f, 100f);
+        srt.sizeDelta = new Vector2(130f, 80f);
 
         Text scoreText = scoreTextObj.AddComponent<Text>();
         scoreText.text = "СЧЕТ: 0";
         scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         scoreText.alignment = TextAnchor.MiddleRight;
         scoreText.color = Color.yellow;
-        scoreText.fontSize = 32;
+        scoreText.fontSize = 28;
 
         ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
         scoreManager.scoreText = scoreText;
