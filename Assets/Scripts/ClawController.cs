@@ -21,7 +21,7 @@ public class ClawController : MonoBehaviour
     public float offsetZ = 0f;
 
     [Header("Опускание и захват")]
-    public float minY = 1.2f;
+    [HideInInspector] public float minY = 1.4f; // Захардкожено и скрыто из инспектора
     public float lowerSpeed = 2f;
     [Tooltip("Захардкожено: 0.3")]
     public float grabDistance = 0.3f;
@@ -73,6 +73,7 @@ public class ClawController : MonoBehaviour
 
     private int fallPhase = 0;
     private float disappearTimer = 0f;
+    private float targetFloorY = 1f;
 
     private Vector3 startMovePos;
     private float moveProgress = 0f;
@@ -80,6 +81,35 @@ public class ClawController : MonoBehaviour
     void Start()
     {
         InitializeClaw();
+    }
+
+    public void ResetClawForNewLevel()
+    {
+        if (grabbedToy != null)
+        {
+            grabbedToy.transform.SetParent(null);
+            grabbedToy = null;
+            grabbedRigidbody = null;
+        }
+
+        isLowering = false;
+        isGrabbing = false;
+        isToyFalling = false;
+        fallingToy = null;
+        isGrabbingActive = false;
+        isReleasingActive = false;
+        currentAngle = 0f;
+        fallPhase = 0;
+
+        if (clawPivot != null)
+        {
+            Vector3 center = new Vector3(offsetX, ropeTopY - 1.5f, offsetZ);
+            clawPivot.position = new Vector3(center.x - squareSize, center.y, center.z + squareSize);
+            clawPivot.rotation = Quaternion.Euler(0, 90, 0);
+            currentWaypointIndex = 0;
+        }
+
+        UpdateRopeAndHands();
     }
 
     void InitializeClaw()
@@ -142,39 +172,6 @@ public class ClawController : MonoBehaviour
 
         clawPivot.position = topLeft;
         isInitialized = true;
-    }
-
-    // Новый метод: принудительный сброс клешни при старте нового уровня
-    public void ResetClawForNewLevel()
-    {
-        // Отпускаем игрушку, если несли
-        if (grabbedToy != null)
-        {
-            grabbedToy.transform.SetParent(null);
-            grabbedToy = null;
-            grabbedRigidbody = null;
-        }
-
-        // Сбрасываем состояния
-        isLowering = false;
-        isGrabbing = false;
-        isToyFalling = false;
-        fallingToy = null;
-        isGrabbingActive = false;
-        isReleasingActive = false;
-        currentAngle = 0f;
-        fallPhase = 0;
-
-        // Возвращаем на исходную позицию
-        if (clawPivot != null)
-        {
-            Vector3 center = new Vector3(offsetX, ropeTopY - 1.5f, offsetZ);
-            clawPivot.position = new Vector3(center.x - squareSize, center.y, center.z + squareSize); // topLeft
-            clawPivot.rotation = Quaternion.Euler(0, 90, 0);
-            currentWaypointIndex = 0;
-        }
-
-        UpdateRopeAndHands();
     }
 
     void MoveToPivot(string name)
@@ -375,13 +372,27 @@ public class ClawController : MonoBehaviour
         Vector3 toyPos = fallingToy.transform.position;
         float distXZ = Vector2.Distance(new Vector2(toyPos.x, toyPos.z), new Vector2(dropZonePosition.x, dropZonePosition.z));
 
-        if (distXZ <= dropZoneRadius)
+        if (distXZ <= dropZoneRadius && toyPos.y < (dropZonePosition.y + 0.5f))
         {
-            fallPhase = 0;
+            fallPhase = 0; // В отсек
         }
         else
         {
-            fallPhase = -1;
+            fallPhase = -1; // На пол
+
+            Renderer[] renderers = fallingToy.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                foreach (var r in renderers) bounds.Encapsulate(r.bounds);
+
+                float currentBottom = bounds.min.y;
+                targetFloorY = toyPos.y + (floorY - currentBottom);
+            }
+            else
+            {
+                targetFloorY = floorY;
+            }
         }
 
         isToyFalling = true;
@@ -444,15 +455,24 @@ public class ClawController : MonoBehaviour
         }
         else if (fallPhase == -1)
         {
-            if (pos.y > floorY)
+            if (pos.y > targetFloorY)
             {
                 pos.y -= fallSpeed * Time.deltaTime;
                 fallingToy.transform.position = pos;
             }
             else
             {
-                pos.y = floorY;
+                pos.y = targetFloorY;
                 fallingToy.transform.position = pos;
+
+                Rigidbody rb = fallingToy.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                    rb.velocity = Vector3.zero;
+                }
+
                 isToyFalling = false;
                 fallingToy = null;
             }

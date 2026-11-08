@@ -14,9 +14,9 @@ public class LevelManager : MonoBehaviour
     // Какие игрушки нужно вытащить на каждом уровне
     private string[][] levelTargets = new string[][]
     {
-        new string[] { "cow_plush_toy" },                                  // Уровень 1
-        new string[] { "mario_soft_toy", "teddy_bear_3d_model" },          // Уровень 2
-        new string[] { "labubu_classic_-_collectible_3d_figure", "viral_monkey_plush_toy", "kangaroo_kids_toy_plushie" } // Уровень 3
+        new string[] { "cow_plush_toy" },
+        new string[] { "mario_soft_toy", "teddy_bear_3d_model" },
+        new string[] { "labubu_classic_-_collectible_3d_figure", "viral_monkey_plush_toy", "kangaroo_kids_toy_plushie" }
     };
 
     [Header("UI Ссылки")]
@@ -49,15 +49,48 @@ public class LevelManager : MonoBehaviour
 
         if (level > maxLevels)
         {
-            if (levelText != null) levelText.text = "ИГРА ПРОЙДЕНА!";
+            // --- ИГРА ПРОЙДЕНА ---
+            if (levelText != null)
+            {
+                levelText.text = "Победа";
+                levelText.color = Color.yellow;
+                levelText.alignment = TextAnchor.MiddleCenter;
+                levelText.fontSize = 40;
+
+                // Растягиваем текст на всю ширину табло
+                RectTransform lrt = levelText.GetComponent<RectTransform>();
+                lrt.anchorMin = new Vector2(0f, 0.5f);
+                lrt.anchorMax = new Vector2(1f, 0.5f);
+                lrt.offsetMin = new Vector2(0f, -40f);
+                lrt.offsetMax = new Vector2(0f, 40f);
+            }
+
             ClearIcons();
+
+            // По центру экрана показываем "ИГРА ПРОЙДЕНА!"
             ShowBigText("ИГРА ПРОЙДЕНА!", 999f);
             return;
         }
 
-        if (levelText != null) levelText.text = $"lvl: {level}";
+        // --- ОБЫЧНЫЙ УРОВЕНЬ ---
+        if (levelText != null)
+        {
+            // На табло пишем с маленькой буквы "lvl: N"
+            levelText.text = $"lvl: {level}";
+            levelText.color = Color.white;
+            levelText.alignment = TextAnchor.MiddleLeft;
+            levelText.fontSize = 36;
 
-        ShowBigText($"УРОВЕНЬ {level}", 2f);
+            // Возвращаем текст в левый край
+            RectTransform lrt = levelText.GetComponent<RectTransform>();
+            lrt.anchorMin = new Vector2(0f, 0.5f);
+            lrt.anchorMax = new Vector2(0f, 0.5f);
+            lrt.offsetMin = new Vector2(15f, -40f);
+            lrt.offsetMax = new Vector2(135f, 40f);
+        }
+
+        // По центру экрана пишем с большой буквы "Уровень N"
+        ShowBigText($"Уровень {level}", 2f);
 
         foreach (var toyName in levelTargets[level - 1])
         {

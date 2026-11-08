@@ -75,7 +75,7 @@ public class SceneBuilder : MonoBehaviour
         controller.moveSpeed = 0.7f;
         controller.offsetX = 0f;
         controller.offsetZ = 0f;
-        controller.minY = 1.2f;
+        controller.minY = 1.4f; // Захардкожено
         controller.lowerSpeed = 0.8f;
         controller.grabDistance = 0.3f;
         controller.ropeTopY = 3.5f;
@@ -211,64 +211,58 @@ public class SceneBuilder : MonoBehaviour
         }
     }
 
-        private void CreateScoreBoard(Transform parent, LevelManager levelManager)
+    private void CreateScoreBoard(Transform parent, LevelManager levelManager)
     {
         GameObject scoreBoardObj = new GameObject("ScoreBoard");
         scoreBoardObj.transform.SetParent(parent, false);
 
         RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
 
-        // Задаем фиксированный размер (например, 480x100)
         rt.sizeDelta = new Vector2(480f, 100f);
-
-        // Привязываем строго к центру по горизонтали и к верху экрана
         rt.anchorMin = new Vector2(0.5f, 1f);
         rt.anchorMax = new Vector2(0.5f, 1f);
         rt.pivot = new Vector2(0.5f, 1f);
-
-        // Опускаем вниз от верхнего края на 40 пикселей
         rt.anchoredPosition = new Vector2(0f, -40f);
 
         Image img = scoreBoardObj.AddComponent<Image>();
         img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
-        // Текст уровня (слева)
+        // Текст уровня
         GameObject levelTextObj = new GameObject("LevelText");
         levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
         RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
         lrt.anchorMin = new Vector2(0f, 0.5f);
         lrt.anchorMax = new Vector2(0f, 0.5f);
         lrt.pivot = new Vector2(0f, 0.5f);
-        lrt.anchoredPosition = new Vector2(20f, 0f); // Отступ от левого края табло
+        lrt.anchoredPosition = new Vector2(20f, 0f);
         lrt.sizeDelta = new Vector2(120f, 80f);
 
         Text levelText = levelTextObj.AddComponent<Text>();
-        levelText.text = "LVL: 1";
+        levelText.text = "lvl: 1";
         levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         levelText.alignment = TextAnchor.MiddleLeft;
         levelText.color = Color.white;
         levelText.fontSize = 36;
 
-        // Контейнер иконок (в центре табло)
+        // Контейнер иконок
         GameObject containerObj = new GameObject("IconsContainer");
         containerObj.transform.SetParent(scoreBoardObj.transform, false);
 
         RectTransform crt = containerObj.AddComponent<RectTransform>();
         crt.anchorMin = new Vector2(0f, 0.5f);
-        crt.anchorMax = new Vector2(1f, 0.5f); // Растягиваем по ширине табло
+        crt.anchorMax = new Vector2(1f, 0.5f);
         crt.pivot = new Vector2(0.5f, 0.5f);
-        crt.offsetMin = new Vector2(140f, -35f); // Отступ слева (после текста)
-        crt.offsetMax = new Vector2(-20f, 35f);  // Отступ справа
+        crt.offsetMin = new Vector2(140f, -35f);
+        crt.offsetMax = new Vector2(-20f, 35f);
 
         HorizontalLayoutGroup layout = containerObj.AddComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleCenter; // Иконки ровно по центру
+        layout.childAlignment = TextAnchor.MiddleCenter;
         layout.spacing = 15f;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        // Отключаем счет (чтобы не выдавал ошибку)
         ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
         scoreManager.scoreText = null;
 
@@ -288,7 +282,7 @@ public class SceneBuilder : MonoBehaviour
         rt.sizeDelta = new Vector2(800, 300);
 
         Text t = textObj.AddComponent<Text>();
-        t.text = "LVL: 1";
+        t.text = "Уровень 1";
         t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         t.alignment = TextAnchor.MiddleCenter;
         t.color = Color.white;
@@ -310,7 +304,7 @@ public class SceneBuilder : MonoBehaviour
 
         RectTransform rt = btnObj.AddComponent<RectTransform>();
         rt.sizeDelta = new Vector2(200, 75);
-        rt.anchoredPosition = pos; // <-- Позиция берется из аргумента
+        rt.anchoredPosition = pos;
         rt.anchorMin = new Vector2(0.5f, 0);
         rt.anchorMax = new Vector2(0.5f, 0);
 
