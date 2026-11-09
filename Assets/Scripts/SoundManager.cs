@@ -17,7 +17,6 @@ public class SoundManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            // ЗАЩИТА ОТ УДАЛЕНИЯ ПРИ СМЕНЕ СЦЕНЫ
             DontDestroyOnLoad(gameObject);
         }
         else
@@ -31,14 +30,16 @@ public class SoundManager : MonoBehaviour
 
         musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = true;
-        musicSource.volume = 0.15f;
+        musicSource.volume = 0.4f; // Увеличили громкость музыки (было 0.15)
         musicSource.playOnAwake = false;
 
+        // Генерируем звуки
         clickSound = GenerateTone(880f, 0.1f, 0.5f);
         grabSound = GenerateChord(new float[] { 440f, 554.37f, 659.25f }, 0.2f, 0.4f);
         successSound = GenerateSweep(600f, 1200f, 0.4f);
-        musicLoop = GenerateAmbientMusic(4.0f);
+        musicLoop = GenerateAmbientMusic(8.0f); // Увеличили длительность до 8 сек
 
+        // Запускаем фоновую музыку
         musicSource.clip = musicLoop;
         musicSource.Play();
     }
@@ -46,6 +47,8 @@ public class SoundManager : MonoBehaviour
     public void PlayClick() => sfxSource.PlayOneShot(clickSound);
     public void PlayGrab() => sfxSource.PlayOneShot(grabSound);
     public void PlaySuccess() => sfxSource.PlayOneShot(successSound);
+
+    // --- ГЕНЕРАТОРЫ ЗВУКА ---
 
     private AudioClip GenerateTone(float frequency, float duration, float volume)
     {
@@ -116,6 +119,7 @@ public class SoundManager : MonoBehaviour
         int sampleCount = Mathf.CeilToInt(sampleRate * duration);
         float[] samples = new float[sampleCount];
 
+        // Аккорды: Am -> F -> C -> G (уютная последовательность)
         float[][] chords = new float[][] {
             new float[] { 220f, 261.63f, 329.63f },
             new float[] { 174.61f, 220f, 261.63f },
@@ -133,19 +137,25 @@ public class SoundManager : MonoBehaviour
                 if (sampleIndex >= sampleCount) break;
 
                 float t = (float)i / sampleRate;
+
+                // Плавное нарастание и спад для каждого аккорда (без резких затуханий)
                 float envelope = Mathf.Sin(Mathf.PI * (float)i / samplesPerChord);
                 float sum = 0;
 
                 foreach (var freq in chords[c])
                 {
-                    float val = Mathf.Sin(2 * Mathf.PI * freq * t);
-                    sum += val * Mathf.Exp(-t * 0.5f);
+                    // Складываем чистые синусоиды
+                    sum += Mathf.Sin(2 * Mathf.PI * freq * t);
                 }
 
-                samples[sampleIndex] = (sum / 3f) * envelope * 0.2f;
+                // Добавляем мягкую вибрацию (LFO) для эффекта "космоса"
+                float lfo = 1.0f + 0.1f * Mathf.Sin(2 * Mathf.PI * 0.5f * t);
+
+                samples[sampleIndex] = (sum / 3f) * envelope * 0.3f * lfo;
             }
         }
 
+        // Плавный переход в конце, чтобы не было щелчка при зацикливании
         int fadeSamples = sampleRate / 2;
         for (int i = 0; i < fadeSamples; i++)
         {
