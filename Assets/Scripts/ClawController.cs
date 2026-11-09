@@ -229,7 +229,7 @@ public class ClawController : MonoBehaviour
     public void StartReleasing() { isReleasingActive = true; isGrabbingActive = false; }
     public void StopReleasing() { isReleasingActive = false; }
 
-        void Update()
+    void Update()
     {
         if (!isInitialized || clawPivot == null || waypoints == null) return;
 
@@ -250,16 +250,21 @@ public class ClawController : MonoBehaviour
         bool grabActive = false;
         bool releaseActive = false;
 
-        // Логика ввода
+        // --- ЛОГИКА ВВОДА (ЭМГ, СПППР или Кнопки) ---
         if (InputManager.Instance != null && InputManager.Instance.currentMode != InputManager.ControlMode.DirectButtons)
         {
             float ch1 = InputManager.Instance.GetChannel1();
             float ch2 = InputManager.Instance.GetChannel2();
 
+            // УВЕДОМЛЕНИЕ ДЛЯ МИССИЙ: Игрок использовал 2-й канал
+            if (ch2 > 0.1f && MissionManager.Instance != null)
+            {
+                MissionManager.Instance.OnFailedAction(true);
+            }
+
             // ШТРАФ ЗА СПАЗМ (Изоляция)
             if (ch1 > 0.5f && ch2 > 0.5f)
             {
-                // Игрок напряг обе мышцы одновременно — клешня замирает
                 UpdateRopeAndHands();
                 return;
             }
@@ -281,7 +286,7 @@ public class ClawController : MonoBehaviour
             // МЕХАНИКА УДЕРЖАНИЯ: если игрушка захвачена, но сигнал слабый — отпускаем
             if (grabbedToy != null && !isLowering && !isGrabbing)
             {
-                if (!grabActive) // Сигнал упал
+                if (!grabActive)
                 {
                     ReleaseGrabbedToy();
                 }
@@ -296,6 +301,7 @@ public class ClawController : MonoBehaviour
             else if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
         }
 
+        // --- ЛОГИКА ДВИЖЕНИЯ ---
         if (grabActive && !isLowering && !isGrabbing && grabbedToy == null)
         {
             isLowering = true;
@@ -315,7 +321,6 @@ public class ClawController : MonoBehaviour
             }
         }
 
-        // ... (дальше идет блок с isLowering, isGrabbing и движением по waypoints, его не меняем)
         if (isLowering)
         {
             if (clawPivot.position.y > minY)
@@ -404,6 +409,15 @@ public class ClawController : MonoBehaviour
 
     void ReleaseGrabbedToy()
     {
+        // УВЕДОМЛЕНИЕ ДЛЯ МИССИЙ: Игрок отпустил игрушку в полете
+        if (!isLowering && !isGrabbing && grabbedToy != null)
+        {
+            if (MissionManager.Instance != null)
+            {
+                MissionManager.Instance.OnFailedAction();
+            }
+        }
+
         fallingToy = grabbedToy;
         fallingToy.transform.SetParent(null);
 
@@ -496,7 +510,6 @@ public class ClawController : MonoBehaviour
                 if (LevelManager.Instance != null)
                     LevelManager.Instance.OnToyCollected(originalName);
 
-                // ЗВУК УСПЕХА
                 if (SoundManager.Instance != null) SoundManager.Instance.PlaySuccess();
 
                 isToyFalling = false;

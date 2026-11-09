@@ -93,6 +93,12 @@ public class LevelManager : MonoBehaviour
             sceneBuilder.SpawnToys(clawController);
         }
 
+        if (MissionManager.Instance != null)
+        {
+            MissionManager.Instance.StartLevel(level);
+            MissionManager.Instance.SetTotalToys(levelTargets[level - 1].Length);
+        }
+
         UpdateIconsUI();
     }
 
@@ -127,6 +133,11 @@ public class LevelManager : MonoBehaviour
         {
             collectedThisLevel[toyName] = true;
             UpdateIconsUI();
+
+            if (MissionManager.Instance != null)
+            {
+                MissionManager.Instance.OnToyCollected();
+            }
 
             if (collectedThisLevel.Values.All(v => v == true))
             {

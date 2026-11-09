@@ -169,6 +169,15 @@ public class SceneBuilder : MonoBehaviour
         CreateScoreBoard(canvasObj.transform, levelManager);
         CreateBigLevelText(canvasObj.transform, levelManager);
 
+
+        // СОЗДАЕМ МИССИИ
+        GameObject mmObj = new GameObject("MissionManager");
+        MissionManager missionManager = mmObj.AddComponent<MissionManager>();
+        missionManager.Initialize(canvasObj.transform);
+
+        CreateScoreBoard(canvasObj.transform, levelManager);
+        CreateBigLevelText(canvasObj.transform, levelManager);
+
         // 11. КНОПКИ
         if (mode == InputManager.ControlMode.DirectButtons)
         {
