@@ -11,7 +11,6 @@ public class LevelManager : MonoBehaviour
     public int currentLevel = 1;
     private int maxLevels = 3;
 
-    // Какие игрушки нужно вытащить на каждом уровне
     private string[][] levelTargets = new string[][]
     {
         new string[] { "cow_plush_toy" },
@@ -49,7 +48,6 @@ public class LevelManager : MonoBehaviour
 
         if (level > maxLevels)
         {
-            // --- ИГРА ПРОЙДЕНА ---
             if (levelText != null)
             {
                 levelText.text = "Победа";
@@ -57,7 +55,6 @@ public class LevelManager : MonoBehaviour
                 levelText.alignment = TextAnchor.MiddleCenter;
                 levelText.fontSize = 40;
 
-                // Растягиваем текст на всю ширину табло
                 RectTransform lrt = levelText.GetComponent<RectTransform>();
                 lrt.anchorMin = new Vector2(0f, 0.5f);
                 lrt.anchorMax = new Vector2(1f, 0.5f);
@@ -66,22 +63,17 @@ public class LevelManager : MonoBehaviour
             }
 
             ClearIcons();
-
-            // По центру экрана показываем "ИГРА ПРОЙДЕНА!"
             ShowBigText("ИГРА ПРОЙДЕНА!", 999f);
             return;
         }
 
-        // --- ОБЫЧНЫЙ УРОВЕНЬ ---
         if (levelText != null)
         {
-            // На табло пишем с маленькой буквы "lvl: N"
             levelText.text = $"lvl: {level}";
             levelText.color = Color.white;
             levelText.alignment = TextAnchor.MiddleLeft;
             levelText.fontSize = 36;
 
-            // Возвращаем текст в левый край
             RectTransform lrt = levelText.GetComponent<RectTransform>();
             lrt.anchorMin = new Vector2(0f, 0.5f);
             lrt.anchorMax = new Vector2(0f, 0.5f);
@@ -89,7 +81,6 @@ public class LevelManager : MonoBehaviour
             lrt.offsetMax = new Vector2(135f, 40f);
         }
 
-        // По центру экрана пишем с большой буквы "Уровень N"
         ShowBigText($"Уровень {level}", 2f);
 
         foreach (var toyName in levelTargets[level - 1])
@@ -103,7 +94,6 @@ public class LevelManager : MonoBehaviour
         }
 
         UpdateIconsUI();
-        Debug.Log($"[LevelManager] Начался уровень {level}.");
     }
 
     private void ShowBigText(string message, float duration)
@@ -136,13 +126,10 @@ public class LevelManager : MonoBehaviour
         if (collectedThisLevel.ContainsKey(toyName) && !collectedThisLevel[toyName])
         {
             collectedThisLevel[toyName] = true;
-            Debug.Log($"[LevelManager] Собрана нужная игрушка: {toyName}");
-
             UpdateIconsUI();
 
             if (collectedThisLevel.Values.All(v => v == true))
             {
-                Debug.Log($"[LevelManager] Уровень {currentLevel} пройден!");
                 Invoke(nameof(GoToNextLevel), 3f);
             }
         }

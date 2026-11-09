@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
 public class MainMenuManager : MonoBehaviour
@@ -25,7 +26,26 @@ public class MainMenuManager : MonoBehaviour
 
     private void CreateMenuUI()
     {
-        // Создаем отдельный Canvas для меню
+        // 1. ПРОВЕРКА КАМЕРЫ (чтобы не было "No cameras rendering")
+        if (Camera.main == null)
+        {
+            GameObject camObj = new GameObject("Menu Camera");
+            Camera cam = camObj.AddComponent<Camera>();
+            camObj.tag = "MainCamera";
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.1f, 0.1f, 0.12f);
+            cam.orthographic = true;
+        }
+
+        // 2. ПРОВЕРКА EVENTSYSTEM (без него кнопки не нажимаются!)
+        if (FindFirstObjectByType<EventSystem>() == null)
+        {
+            GameObject esObj = new GameObject("EventSystem");
+            esObj.AddComponent<EventSystem>();
+            esObj.AddComponent<StandaloneInputModule>();
+        }
+
+        // 3. СОЗДАНИЕ UI
         GameObject canvasObj = new GameObject("MenuCanvas");
         menuCanvas = canvasObj.AddComponent<Canvas>();
         menuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -77,7 +97,6 @@ public class MainMenuManager : MonoBehaviour
         tutorialPanel.SetActive(false);
     }
 
-    // --- ПРАВИЛЬНОЕ СОЗДАНИЕ DROPDOWN ---
     private void CreateWorkingDropdown(Transform parent, Vector2 pos)
     {
         GameObject dropdownObj = new GameObject("ControlModeDropdown");
@@ -93,7 +112,6 @@ public class MainMenuManager : MonoBehaviour
 
         Dropdown dropdown = dropdownObj.AddComponent<Dropdown>();
 
-        // 1. LABEL (Отображаемый текст)
         GameObject labelObj = new GameObject("Label");
         labelObj.transform.SetParent(dropdownObj.transform, false);
         RectTransform lrt = labelObj.AddComponent<RectTransform>();
@@ -108,22 +126,20 @@ public class MainMenuManager : MonoBehaviour
         labelText.alignment = TextAnchor.MiddleLeft;
         dropdown.captionText = labelText;
 
-        // 2. TEMPLATE (Шаблон списка)
         GameObject templateObj = new GameObject("Template");
         templateObj.transform.SetParent(dropdownObj.transform, false);
         RectTransform trt = templateObj.AddComponent<RectTransform>();
         trt.anchorMin = new Vector2(0f, 0f);
         trt.anchorMax = new Vector2(1f, 0f);
         trt.pivot = new Vector2(0.5f, 1f);
-        trt.anchoredPosition = new Vector2(0, -5); // Небольшой отступ вниз
-        trt.sizeDelta = new Vector2(0, 300); // Высота самого выпадающего окна
+        trt.anchoredPosition = new Vector2(0, -5);
+        trt.sizeDelta = new Vector2(0, 300);
 
         Image templateImg = templateObj.AddComponent<Image>();
         templateImg.color = new Color(0.15f, 0.15f, 0.2f, 1f);
 
         ScrollRect scrollRect = templateObj.AddComponent<ScrollRect>();
 
-        // 3. VIEWPORT (Маска)
         GameObject viewportObj = new GameObject("Viewport");
         viewportObj.transform.SetParent(templateObj.transform, false);
         RectTransform vrt = viewportObj.AddComponent<RectTransform>();
@@ -133,30 +149,25 @@ public class MainMenuManager : MonoBehaviour
         viewportObj.AddComponent<Mask>().showMaskGraphic = false;
         viewportObj.AddComponent<Image>().color = Color.white;
 
-        // 4. CONTENT (Список элементов)
         GameObject contentObj = new GameObject("Content");
         contentObj.transform.SetParent(viewportObj.transform, false);
         RectTransform crt = contentObj.AddComponent<RectTransform>();
         crt.anchorMin = new Vector2(0f, 1f);
         crt.anchorMax = new Vector2(1f, 1f);
         crt.pivot = new Vector2(0.5f, 1f);
-        crt.sizeDelta = new Vector2(0, 80);
+        crt.sizeDelta = new Vector2(0, 240);
 
-        // 5. ITEM (Один элемент списка - ОБЯЗАТЕЛЬНО С TOGGLE)
         GameObject itemObj = new GameObject("Item");
         itemObj.transform.SetParent(contentObj.transform, false);
         RectTransform irt = itemObj.AddComponent<RectTransform>();
-        irt.anchorMin = new Vector2(0f, 0.5f);
-        irt.anchorMax = new Vector2(1f, 0.5f);
+        irt.anchorMin = new Vector2(0f, 1f);
+        irt.anchorMax = new Vector2(1f, 1f);
+        irt.pivot = new Vector2(0.5f, 1f);
         irt.sizeDelta = new Vector2(0, 80);
 
-        // Фон элемента
         itemObj.AddComponent<Image>().color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-
-        // ГЛАВНАЯ ОШИБКА БЫЛА ЗДЕСЬ — нужен Toggle!
         Toggle itemToggle = itemObj.AddComponent<Toggle>();
 
-        // Фон-галочка (просто прозрачная картинка)
         GameObject checkObj = new GameObject("Item Checkmark");
         checkObj.transform.SetParent(itemObj.transform, false);
         RectTransform chrt = checkObj.AddComponent<RectTransform>();
@@ -164,10 +175,9 @@ public class MainMenuManager : MonoBehaviour
         chrt.anchorMax = new Vector2(0f, 0.5f);
         chrt.sizeDelta = new Vector2(30, 30);
         chrt.anchoredPosition = new Vector2(15, 0);
-        checkObj.AddComponent<Image>().color = new Color(0.2f, 0.6f, 1f); // Синяя галочка
+        checkObj.AddComponent<Image>().color = new Color(0.2f, 0.6f, 1f);
         itemToggle.graphic = checkObj.GetComponent<Image>();
 
-        // Текст элемента
         GameObject itemTextObj = new GameObject("Item Label");
         itemTextObj.transform.SetParent(itemObj.transform, false);
         RectTransform itrt = itemTextObj.AddComponent<RectTransform>();
@@ -181,30 +191,25 @@ public class MainMenuManager : MonoBehaviour
         itemText.color = Color.white;
         itemText.alignment = TextAnchor.MiddleLeft;
 
-        // Связываем всё в Dropdown
         dropdown.template = trt;
         dropdown.captionText = labelText;
         dropdown.itemText = itemText;
 
-        // Связываем ScrollRect
         scrollRect.content = crt;
         scrollRect.viewport = vrt;
         scrollRect.horizontal = false;
         scrollRect.vertical = true;
 
-        // Настройки Toggle
         itemToggle.targetGraphic = itemObj.GetComponent<Image>();
         itemToggle.isOn = true;
 
-        // Добавляем опции
         dropdown.options.Clear();
         dropdown.options.Add(new Dropdown.OptionData("ЭМГ (Клавиши A/D)"));
         dropdown.options.Add(new Dropdown.OptionData("СПППР (Клавиши W/S)"));
         dropdown.options.Add(new Dropdown.OptionData("Кнопки (Тач)"));
 
-        dropdown.value = 0; // По умолчанию ЭМГ
+        dropdown.value = 0;
 
-        // Обработка выбора
         dropdown.onValueChanged.AddListener((index) =>
         {
             switch (index)
@@ -213,7 +218,6 @@ public class MainMenuManager : MonoBehaviour
                 case 1: selectedMode = InputManager.ControlMode.SPPPR; break;
                 case 2: selectedMode = InputManager.ControlMode.DirectButtons; break;
             }
-            Debug.Log($"[Menu] Выбран режим: {selectedMode}");
         });
     }
 
@@ -221,9 +225,10 @@ public class MainMenuManager : MonoBehaviour
     {
         if (menuCanvas != null) Destroy(menuCanvas.gameObject);
 
-        if (FindObjectOfType<SceneBuilder>() != null)
+        SceneBuilder builder = FindFirstObjectByType<SceneBuilder>();
+        if (builder != null)
         {
-            FindObjectOfType<SceneBuilder>().BuildGame(selectedMode);
+            builder.BuildGame(selectedMode);
         }
     }
 
@@ -231,8 +236,6 @@ public class MainMenuManager : MonoBehaviour
     private void ShowSettings() { settingsPanel.SetActive(true); }
     private void CloseSubMenus() { tutorialPanel.SetActive(false); settingsPanel.SetActive(false); }
     private void QuitGame() { Application.Quit(); }
-
-    // ... (Вспомогательные методы CreatePanel, CreateText, CreateButton) ...
 
     private GameObject CreatePanel(Transform parent, string name, Color bgColor)
     {

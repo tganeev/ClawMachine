@@ -7,9 +7,9 @@ public class ClawController : MonoBehaviour
     public float maxAngle = 55f;
     public float speed = 100f;
 
-    [Header("Настройки ЭМГ (Только для режимов ЭМГ и СПППР)")]
-    public float activationThreshold = 0.5f; // Порог активации
-    public bool isProportionalMode = false;  // Пропорциональный режим (сила нажатия = скорость)
+    [Header("Настройки ЭМГ (Только для режимов ЭМГ и СППР)")]
+    public float activationThreshold = 0.5f;
+    public bool isProportionalMode = false;
 
     [Header("Инверсия для каждого пальца")]
     public bool invertHand1 = false;
@@ -113,6 +113,15 @@ public class ClawController : MonoBehaviour
 
     void InitializeClaw()
     {
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        foreach (var obj in allObjects)
+        {
+            if (obj.name == "ClawPivot" || obj.name == "FakeRope" || obj.name.Contains("SM_Rope") || obj.name.Contains("SM_VerticalBar"))
+            {
+                Destroy(obj);
+            }
+        }
+
         hand1 = FindTransformByName("SM_Hand_1") ?? hand1;
         hand2 = FindTransformByName("SM_Hand_2") ?? hand2;
         hand3 = FindTransformByName("SM_Hand_3") ?? hand3;
@@ -120,10 +129,6 @@ public class ClawController : MonoBehaviour
         if (hand1 != null) baseRot1 = hand1.localRotation;
         if (hand2 != null) baseRot2 = hand2.localRotation;
         if (hand3 != null) baseRot3 = hand3.localRotation;
-
-        Transform oldRope = FindTransformByName("SM_Rope");
-        if (oldRope == null) oldRope = FindTransformByName("SM_VerticalBar");
-        if (oldRope != null) oldRope.gameObject.SetActive(false);
 
         GameObject pivotObj = new GameObject("ClawPivot");
         pivotObj.transform.position = new Vector3(0, ropeTopY - 1.5f, 0);
@@ -181,7 +186,7 @@ public class ClawController : MonoBehaviour
 
     Transform FindTransformByName(string name)
     {
-        GameObject[] allObjects = FindObjectsOfType<GameObject>();
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         foreach (var obj in allObjects)
         {
             if (obj.name == name) return obj.transform;
@@ -245,7 +250,6 @@ public class ClawController : MonoBehaviour
         bool grabActive = false;
         bool releaseActive = false;
 
-        // --- ЛОГИКА ВВОДА (ЭМГ, СПППР или Кнопки) ---
         if (InputManager.Instance != null && InputManager.Instance.currentMode != InputManager.ControlMode.DirectButtons)
         {
             float ch1 = InputManager.Instance.GetChannel1();
@@ -267,7 +271,6 @@ public class ClawController : MonoBehaviour
         }
         else
         {
-            // Обычные кнопки UI или клавиатура
             grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
             releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
 
@@ -275,7 +278,6 @@ public class ClawController : MonoBehaviour
             else if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
         }
 
-        // --- ЛОГИКА ДВИЖЕНИЯ ---
         if (grabActive && !isLowering && !isGrabbing && grabbedToy == null)
         {
             isLowering = true;
@@ -389,7 +391,7 @@ public class ClawController : MonoBehaviour
         {
             rb.isKinematic = true;
             rb.useGravity = false;
-            rb.velocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
         }
         grabbedRigidbody = null;
 
@@ -494,7 +496,7 @@ public class ClawController : MonoBehaviour
                 {
                     rb.isKinematic = true;
                     rb.useGravity = false;
-                    rb.velocity = Vector3.zero;
+                    rb.linearVelocity = Vector3.zero;
                 }
 
                 isToyFalling = false;
