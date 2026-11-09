@@ -329,6 +329,9 @@ public class ClawController : MonoBehaviour
                                 grabbedRigidbody.isKinematic = true;
                                 grabbedRigidbody.useGravity = false;
                             }
+
+                            // ЗВУК ЗАХВАТА
+                            if (SoundManager.Instance != null) SoundManager.Instance.PlayGrab();
                         }
                     }
                 }
@@ -474,6 +477,9 @@ public class ClawController : MonoBehaviour
 
                 if (LevelManager.Instance != null)
                     LevelManager.Instance.OnToyCollected(originalName);
+
+                // ЗВУК УСПЕХА
+                if (SoundManager.Instance != null) SoundManager.Instance.PlaySuccess();
 
                 isToyFalling = false;
                 fallingToy = null;

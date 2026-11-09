@@ -10,19 +10,27 @@ public class SceneBuilder : MonoBehaviour
     {
         Debug.Log("[SceneBuilder] Инициализация...");
 
-        // 1. СОЗДАЕМ КАМЕРУ
+        // 1. СОЗДАЕМ SOUND MANAGER (с защитой от удаления)
+        if (SoundManager.Instance == null)
+        {
+            GameObject smObj = new GameObject("SoundManager");
+            smObj.AddComponent<SoundManager>();
+        }
+
+        // 2. ПРОВЕРКА КАМЕРЫ
         if (Camera.main == null)
         {
-            GameObject camObj = new GameObject("Main Camera");
-            camObj.tag = "MainCamera";
+            GameObject camObj = new GameObject("Menu Camera");
             Camera cam = camObj.AddComponent<Camera>();
+            camObj.AddComponent<AudioListener>();
+            camObj.tag = "MainCamera";
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.1f, 0.1f, 0.12f);
             cam.orthographic = true;
             camObj.transform.position = new Vector3(0, 0, -10);
         }
 
-        // 2. СОЗДАЕМ EVENTSYSTEM
+        // 3. ПРОВЕРКА EVENTSYSTEM
         if (FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject esObj = new GameObject("EventSystem");
@@ -30,7 +38,7 @@ public class SceneBuilder : MonoBehaviour
             esObj.AddComponent<StandaloneInputModule>();
         }
 
-        // 3. ЗАПУСКАЕМ МЕНЮ
+        // 4. ЗАПУСКАЕМ МЕНЮ
         if (MainMenuManager.Instance == null)
         {
             GameObject menuObj = new GameObject("MainMenuManager");
@@ -45,21 +53,33 @@ public class SceneBuilder : MonoBehaviour
 
         Debug.Log("[SceneBuilder] Очистка и сборка игры...");
 
-        // 1. УДАЛЯЕМ АБСОЛЮТНО ВСЁ (включая меню и EventSystem),
-        // чтобы не было ошибок MissingReference
+        // 1. БЕЗОПАСНАЯ ОЧИСТКА
+        // Мы НЕ используем DestroyImmediate для удаления меню, чтобы не сломать текущий кадр.
+        // Мы просто удаляем всё лишнее, кроме SoundManager и EventSystem.
         GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         foreach (GameObject obj in allObjects)
         {
-            if (obj != this.gameObject) // Оставляем только сам SceneBuilder
+            if (obj != this.gameObject &&
+                obj.name != "SoundManager" &&
+                obj.name != "EventSystem")
             {
-                DestroyImmediate(obj);
+                // Удаляем именно объекты меню и старые камеры
+                if (obj.name.Contains("Camera") || obj.name.Contains("Menu") ||
+                    obj.name.Contains("Light") || obj.name.Contains("Canvas") ||
+                    obj.name.Contains("Manager") || obj.name.Contains("Model") ||
+                    obj.name.Contains("Floor") || obj.name.Contains("Toy_"))
+                {
+                    Destroy(obj);
+                }
             }
         }
 
-        // 2. КАМЕРА ДЛЯ ИГРЫ
+        // 2. ИГРОВАЯ КАМЕРА (с обязательным AudioListener)
         GameObject camObj = new GameObject("Main Camera");
         camObj.tag = "MainCamera";
         Camera cam = camObj.AddComponent<Camera>();
+        camObj.AddComponent<AudioListener>(); // Звук в игре
+
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
         cam.orthographic = false;
@@ -73,7 +93,7 @@ public class SceneBuilder : MonoBehaviour
         light.type = LightType.Directional;
         lightObj.transform.rotation = Quaternion.Euler(50, -30, 0);
 
-        // 4. МОДЕЛЬ АВТОМАТА
+        // 4. АВТОМАТ
         GameObject clawMachinePrefab = Resources.Load<GameObject>("claw_machine");
         if (clawMachinePrefab != null)
         {
@@ -92,7 +112,7 @@ public class SceneBuilder : MonoBehaviour
         invisibleFloor.name = "InvisibleFloor";
         invisibleFloor.transform.position = new Vector3(0, 0.9f, 0);
         invisibleFloor.transform.localScale = new Vector3(4f, 0.2f, 4f);
-        DestroyImmediate(invisibleFloor.GetComponent<Renderer>());
+        Destroy(invisibleFloor.GetComponent<Renderer>());
 
         // 6. ВВОД
         GameObject imObj = new GameObject("InputManager");
@@ -133,15 +153,17 @@ public class SceneBuilder : MonoBehaviour
         scaler.referenceResolution = new Vector2(1080, 1920);
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Заново создаем EventSystem (так как мы всё удалили)
-        GameObject es = new GameObject("EventSystem");
-        es.AddComponent<EventSystem>();
-        es.AddComponent<StandaloneInputModule>();
+        if (Object.FindFirstObjectByType<EventSystem>() == null)
+        {
+            GameObject es = new GameObject("EventSystem");
+            es.AddComponent<EventSystem>();
+            es.AddComponent<StandaloneInputModule>();
+        }
 
         CreateScoreBoard(canvasObj.transform, levelManager);
         CreateBigLevelText(canvasObj.transform, levelManager);
 
-        // 11. КНОПКИ УПРАВЛЕНИЯ
+        // 11. КНОПКИ
         if (mode == InputManager.ControlMode.DirectButtons)
         {
             CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-150f, 100f), controller, true);
@@ -203,7 +225,7 @@ public class SceneBuilder : MonoBehaviour
             GameObject toy = Instantiate(prefab, Vector3.zero, toyRotations[i]);
             toy.name = "Toy_" + toyPrefabNames[i];
 
-            foreach (var col in toy.GetComponentsInChildren<Collider>()) DestroyImmediate(col);
+            foreach (var col in toy.GetComponentsInChildren<Collider>()) Destroy(col);
 
             Bounds bounds = new Bounds(toy.transform.position, Vector3.zero);
             bool hasBounds = false;
@@ -212,7 +234,7 @@ public class SceneBuilder : MonoBehaviour
                 if (!hasBounds) { bounds = r.bounds; hasBounds = true; }
                 else bounds.Encapsulate(r.bounds);
             }
-            if (!hasBounds) { DestroyImmediate(toy); continue; }
+            if (!hasBounds) { Destroy(toy); continue; }
 
             float targetHeight = toyHeights[i];
             float currentHeight = bounds.size.y > 0.0001f ? bounds.size.y : 1f;
