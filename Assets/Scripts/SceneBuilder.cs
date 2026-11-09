@@ -80,6 +80,12 @@ public class SceneBuilder : MonoBehaviour
         Camera cam = camObj.AddComponent<Camera>();
         camObj.AddComponent<AudioListener>(); // Звук в игре
 
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.StartMusic();
+        }
+
+
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
         cam.orthographic = false;

@@ -10,7 +10,7 @@ public class SoundManager : MonoBehaviour
     private AudioClip clickSound;
     private AudioClip grabSound;
     private AudioClip successSound;
-    private AudioClip backgroundMusic; // Изменено
+    private AudioClip backgroundMusic;
 
     void Awake()
     {
@@ -30,22 +30,20 @@ public class SoundManager : MonoBehaviour
 
         musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = true;
-        musicSource.volume = 0.3f; // Отрегулируйте громкость по вкусу
-        musicSource.playOnAwake = false;
+        musicSource.volume = 0.3f;
+        musicSource.playOnAwake = false; // Музыка не играет сразу
 
-        // Генерируем звуки
+        // Генерируем звуковые эффекты
         clickSound = GenerateTone(880f, 0.1f, 0.5f);
         grabSound = GenerateChord(new float[] { 440f, 554.37f, 659.25f }, 0.2f, 0.4f);
         successSound = GenerateSweep(600f, 1200f, 0.4f);
 
-        // ЗАГРУЖАЕМ ФОНОВУЮ МУЗЫКУ ИЗ РЕСУРСОВ
+        // Загружаем фоновую музыку
         backgroundMusic = Resources.Load<AudioClip>("bathing_in_the_sung_electronic");
 
         if (backgroundMusic != null)
         {
             musicSource.clip = backgroundMusic;
-            musicSource.Play();
-            Debug.Log("[SoundManager] Фоновая музыка успешно загружена и играет.");
         }
         else
         {
@@ -53,11 +51,21 @@ public class SoundManager : MonoBehaviour
         }
     }
 
+    // НОВЫЙ МЕТОД ДЛЯ ЗАПУСКА МУЗЫКИ
+    public void StartMusic()
+    {
+        if (backgroundMusic != null && !musicSource.isPlaying)
+        {
+            musicSource.Play();
+            Debug.Log("[SoundManager] Фоновая музыка запущена.");
+        }
+    }
+
     public void PlayClick() => sfxSource.PlayOneShot(clickSound);
     public void PlayGrab() => sfxSource.PlayOneShot(grabSound);
     public void PlaySuccess() => sfxSource.PlayOneShot(successSound);
 
-    // --- ГЕНЕРАТОРЫ ЗВУКА (остались для эффектов) ---
+    // --- ГЕНЕРАТОРЫ ЗВУКА ---
 
     private AudioClip GenerateTone(float frequency, float duration, float volume)
     {
