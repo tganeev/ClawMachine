@@ -5,94 +5,160 @@ public class SignalUI : MonoBehaviour
 {
     private Image bar1Fill;
     private Image bar2Fill;
-    private Text label1;
-    private Text label2;
+    private Text valueText1;
+    private Text valueText2;
+    private float maxHeight = 200f;
 
-    private float maxHeight = 150f; // Сделали полоски чуть ниже
-
-    public void Initialize()
+        public void Initialize()
     {
         GameObject canvasObj = new GameObject("SignalCanvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 5;
+        canvas.sortingOrder = 20;
 
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1080, 1920);
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Располагаем полоски по центру, прямо над джойстиком
-        Vector2 leftPos = new Vector2(-60f, 250f); // Левая полоска
-        Vector2 rightPos = new Vector2(60f, 250f); // Правая полоска
+        // Сдвигаем весь блок правее (X = 80) и поднимаем выше (Y = 280)
+        Vector2 centerPos = new Vector2(80f, 280f);
 
-        CreateBar(canvasObj.transform, leftPos, out bar1Fill, out label1, "СЖАТЬ");
-        CreateBar(canvasObj.transform, rightPos, out bar2Fill, out label2, "РАЗЖАТЬ");
+        // Левая шкала (Канал 1)
+        CreateProperSlider(canvasObj.transform, centerPos + new Vector2(-80f, 0), true, "Сжать");
+
+        // Правая шкала (Канал 2)
+        CreateProperSlider(canvasObj.transform, centerPos + new Vector2(80f, 0), false, "Разжать");
     }
 
-    private void CreateBar(Transform parent, Vector2 pos, out Image fill, out Text label, string labelText)
+    private void CreateProperSlider(Transform parent, Vector2 pos, bool isChannel1, string labelText)
     {
-        // Фон полоски
-        GameObject bgObj = new GameObject("BarBackground");
-        bgObj.transform.SetParent(parent, false);
+        // 1. ГЛАВНЫЙ КОНТЕЙНЕР (Slider)
+        GameObject sliderObj = new GameObject("Slider_" + labelText);
+        sliderObj.transform.SetParent(parent, false);
+
+        RectTransform sliderRt = sliderObj.AddComponent<RectTransform>();
+        sliderRt.anchorMin = new Vector2(0.5f, 0f);
+        sliderRt.anchorMax = new Vector2(0.5f, 0f);
+        sliderRt.pivot = new Vector2(0.5f, 0f);
+        sliderRt.anchoredPosition = pos;
+
+        // Высота самой шкалы осталась 170
+        sliderRt.sizeDelta = new Vector2(60, 170f);
+
+        Slider slider = sliderObj.AddComponent<Slider>();
+        slider.direction = Slider.Direction.BottomToTop;
+        slider.minValue = 0;
+        slider.maxValue = 1;
+        slider.value = 0;
+
+        // 2. BACKGROUND (Фон полоски)
+        GameObject bgObj = new GameObject("Background");
+        bgObj.transform.SetParent(sliderObj.transform, false);
         RectTransform bgRt = bgObj.AddComponent<RectTransform>();
-        bgRt.anchorMin = new Vector2(0.5f, 0f);
-        bgRt.anchorMax = new Vector2(0.5f, 0f);
-        bgRt.pivot = new Vector2(0.5f, 0);
-        bgRt.anchoredPosition = pos;
-        bgRt.sizeDelta = new Vector2(50, maxHeight);
-
+        bgRt.anchorMin = Vector2.zero;
+        bgRt.anchorMax = Vector2.one;
+        bgRt.sizeDelta = Vector2.zero;
         Image bgImg = bgObj.AddComponent<Image>();
-        bgImg.color = new Color(0.15f, 0.15f, 0.15f, 0.85f); // Темный фон
+        bgImg.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
 
-        // Заполняющая часть
-        GameObject fillObj = new GameObject("BarFill");
-        fillObj.transform.SetParent(bgObj.transform, false);
+        // 3. FILL AREA
+        GameObject fillArea = new GameObject("Fill Area");
+        fillArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform faRt = fillArea.AddComponent<RectTransform>();
+        faRt.anchorMin = Vector2.zero;
+        faRt.anchorMax = Vector2.one;
+        faRt.offsetMin = new Vector2(5, 5);
+        faRt.offsetMax = new Vector2(-5, -5);
+
+        // 4. FILL
+        GameObject fillObj = new GameObject("Fill");
+        fillObj.transform.SetParent(fillArea.transform, false);
         RectTransform fillRt = fillObj.AddComponent<RectTransform>();
-        fillRt.anchorMin = new Vector2(0, 0);
+        fillRt.anchorMin = Vector2.zero;
         fillRt.anchorMax = new Vector2(1, 0);
-        fillRt.pivot = new Vector2(0.5f, 0);
-        fillRt.sizeDelta = new Vector2(0, 0);
+        fillRt.sizeDelta = Vector2.zero;
 
-        fill = fillObj.AddComponent<Image>();
-        fill.color = new Color(0.2f, 0.9f, 0.2f, 0.9f); // Ярко-зеленый
+        Image fill = fillObj.AddComponent<Image>();
+        fill.color = new Color(0.2f, 0.9f, 0.2f, 0.9f);
 
-        // Подпись под полоской
+        if (isChannel1) bar1Fill = fill;
+        else bar2Fill = fill;
+
+        // 5. HANDLE SLIDE AREA
+        GameObject handleArea = new GameObject("Handle Slide Area");
+        handleArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform haRt = handleArea.AddComponent<RectTransform>();
+        haRt.anchorMin = Vector2.zero;
+        haRt.anchorMax = Vector2.one;
+        haRt.offsetMin = new Vector2(0, 10);
+        haRt.offsetMax = new Vector2(0, -10);
+
+        // 6. HANDLE
+        GameObject handleObj = new GameObject("Handle");
+        handleObj.transform.SetParent(handleArea.transform, false);
+        RectTransform hRt = handleObj.AddComponent<RectTransform>();
+        hRt.sizeDelta = new Vector2(60, 20);
+
+        Image handleImg = handleObj.AddComponent<Image>();
+        handleImg.color = new Color(1f, 1f, 1f, 0.5f);
+
+        slider.fillRect = fillRt;
+        slider.handleRect = hRt;
+        slider.targetGraphic = handleImg;
+
+        // 7. ЧИСЛОВОЕ ЗНАЧЕНИЕ (Над шкалой)
+        GameObject valueObj = new GameObject("ValueText");
+        valueObj.transform.SetParent(sliderObj.transform, false);
+        RectTransform vRt = valueObj.AddComponent<RectTransform>();
+
+        vRt.anchorMin = new Vector2(0.5f, 1f);
+        vRt.anchorMax = new Vector2(0.5f, 1f);
+        vRt.pivot = new Vector2(0.5f, 0f);
+        vRt.anchoredPosition = new Vector2(0, 10);
+        vRt.sizeDelta = new Vector2(100, 40);
+
+        Text valText = valueObj.AddComponent<Text>();
+        valText.text = "0.00";
+        valText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        valText.fontSize = 28;
+        valText.fontStyle = FontStyle.Bold;
+        valText.color = Color.yellow;
+        valText.alignment = TextAnchor.MiddleCenter;
+
+        if (isChannel1) valueText1 = valText;
+        else valueText2 = valText;
+
+        // Слушатель
+        slider.onValueChanged.AddListener((val) => {
+            if (isChannel1) {
+                InputManager.Instance.Channel1SliderValue = val;
+                valueText1.text = val.ToString("F2");
+            }
+            else {
+                InputManager.Instance.Channel2SliderValue = val;
+                valueText2.text = val.ToString("F2");
+            }
+        });
+
+        // 8. ПОДПИСЬ (Внизу шкалы)
         GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(bgObj.transform, false);
-        RectTransform labelRt = labelObj.AddComponent<RectTransform>();
-        labelRt.anchorMin = new Vector2(0.5f, 0);
-        labelRt.anchorMax = new Vector2(0.5f, 0);
-        labelRt.pivot = new Vector2(0.5f, 1);
-        labelRt.anchoredPosition = new Vector2(0, -10);
-        labelRt.sizeDelta = new Vector2(120, 40);
+        labelObj.transform.SetParent(sliderObj.transform, false);
+        RectTransform lrt = labelObj.AddComponent<RectTransform>();
+        lrt.anchorMin = new Vector2(0.5f, 0);
+        lrt.anchorMax = new Vector2(0.5f, 0);
+        lrt.pivot = new Vector2(0.5f, 1);
 
-        label = labelObj.AddComponent<Text>();
-        label.text = labelText;
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        label.fontSize = 24;
-        label.fontStyle = FontStyle.Bold;
-        label.color = Color.white;
-        label.alignment = TextAnchor.MiddleCenter;
-    }
+        // Опускаем текст "Сжать/Разжать" чуть ниже, чтобы освободить место для полоски
+        lrt.anchoredPosition = new Vector2(0, -15);
+        lrt.sizeDelta = new Vector2(120, 40);
 
-    void Update()
-    {
-        if (InputManager.Instance == null) return;
-
-        float ch1 = InputManager.Instance.GetChannel1();
-        float ch2 = InputManager.Instance.GetChannel2();
-
-        if (bar1Fill != null)
-        {
-            bar1Fill.rectTransform.sizeDelta = new Vector2(0, maxHeight * ch1);
-            bar1Fill.color = ch1 > 0.5f ? new Color(0.2f, 1f, 0.2f) : new Color(0.2f, 0.7f, 0.2f, 0.8f);
-        }
-
-        if (bar2Fill != null)
-        {
-            bar2Fill.rectTransform.sizeDelta = new Vector2(0, maxHeight * ch2);
-            bar2Fill.color = ch2 > 0.5f ? new Color(0.2f, 1f, 0.2f) : new Color(0.2f, 0.7f, 0.2f, 0.8f);
-        }
+        Text lText = labelObj.AddComponent<Text>();
+        lText.text = labelText;
+        lText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lText.fontSize = 24;
+        lText.fontStyle = FontStyle.Bold;
+        lText.color = Color.white;
+        lText.alignment = TextAnchor.MiddleCenter;
     }
 }

@@ -31,14 +31,12 @@ public class SoundManager : MonoBehaviour
         musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = true;
         musicSource.volume = 0.3f;
-        musicSource.playOnAwake = false; // Музыка не играет сразу
+        musicSource.playOnAwake = false;
 
-        // Генерируем звуковые эффекты
         clickSound = GenerateTone(880f, 0.1f, 0.5f);
         grabSound = GenerateChord(new float[] { 440f, 554.37f, 659.25f }, 0.2f, 0.4f);
         successSound = GenerateSweep(600f, 1200f, 0.4f);
 
-        // Загружаем фоновую музыку
         backgroundMusic = Resources.Load<AudioClip>("bathing_in_the_sung_electronic");
 
         if (backgroundMusic != null)
@@ -51,13 +49,14 @@ public class SoundManager : MonoBehaviour
         }
     }
 
-    // НОВЫЙ МЕТОД ДЛЯ ЗАПУСКА МУЗЫКИ
     public void StartMusic()
     {
-        if (backgroundMusic != null && !musicSource.isPlaying)
+        if (backgroundMusic != null)
         {
+            if (musicSource.isPlaying) return;
+            musicSource.clip = backgroundMusic;
             musicSource.Play();
-            Debug.Log("[SoundManager] Фоновая музыка запущена.");
+            Debug.Log("[SoundManager] Музыка запущена.");
         }
     }
 
@@ -66,7 +65,6 @@ public class SoundManager : MonoBehaviour
     public void PlaySuccess() => sfxSource.PlayOneShot(successSound);
 
     // --- ГЕНЕРАТОРЫ ЗВУКА ---
-
     private AudioClip GenerateTone(float frequency, float duration, float volume)
     {
         int sampleRate = 44100;

@@ -62,7 +62,7 @@ public class MainMenuManager : MonoBehaviour
         float spacing = 150f;
 
         CreateButton(menuPanel.transform, "ИГРАТЬ", startPos, () => StartGame());
-        CreateButton(menuPanel.transform, "ОБУЧЕНИЕ", startPos - new Vector2(0, spacing), () => ShowTutorial());
+        CreateButton(menuPanel.transform, "ОБУЧЕНИЕ", startPos - new Vector2(0, spacing), () => StartGame(true));
         CreateButton(menuPanel.transform, "НАСТРОЙКИ", startPos - new Vector2(0, spacing * 2), () => ShowSettings());
         CreateButton(menuPanel.transform, "ВЫХОД", startPos - new Vector2(0, spacing * 3), () => QuitGame());
 
@@ -179,11 +179,14 @@ public class MainMenuManager : MonoBehaviour
         t.alignment = TextAnchor.MiddleLeft;
     }
 
-    private void StartGame()
+    private void StartGame(bool isTutorial = false)
     {
         if (menuCanvas != null) Destroy(menuCanvas.gameObject);
         SceneBuilder builder = FindFirstObjectByType<SceneBuilder>();
-        if (builder != null) builder.BuildGame(selectedMode);
+        if (builder != null)
+        {
+            builder.BuildGame(selectedMode, isTutorial);
+        }
     }
 
     private void ShowTutorial() { tutorialPanel.SetActive(true); }

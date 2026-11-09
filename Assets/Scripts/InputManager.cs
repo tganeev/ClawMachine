@@ -9,6 +9,10 @@ public class InputManager : MonoBehaviour
     [Header("Текущий режим")]
     public ControlMode currentMode = ControlMode.EMG;
 
+    // Статические значения для слайдеров
+    public float Channel1SliderValue = 0f;
+    public float Channel2SliderValue = 0f;
+
     private IControlInput activeInput;
 
     void Awake()
@@ -30,15 +34,23 @@ public class InputManager : MonoBehaviour
                 break;
             case ControlMode.DirectButtons:
             default:
-                activeInput = null; // В этом режиме клешня использует UI кнопки (старый код)
+                activeInput = null;
                 break;
         }
-        Debug.Log($"[InputManager] Режим управления изменен на: {currentMode}");
     }
 
-    public float GetChannel1() => activeInput?.GetChannel1() ?? 0f;
-    public float GetChannel2() => activeInput?.GetChannel2() ?? 0f;
+    public float GetChannel1()
+    {
+        if (activeInput != null) return activeInput.GetChannel1();
+        return Channel1SliderValue; // Если нет активного, берем слайдер
+    }
 
-    public string GetChannel1Name() => activeInput?.GetChannel1Name() ?? "Нет";
-    public string GetChannel2Name() => activeInput?.GetChannel2Name() ?? "Нет";
+    public float GetChannel2()
+    {
+        if (activeInput != null) return activeInput.GetChannel2();
+        return Channel2SliderValue;
+    }
+
+    public string GetChannel1Name() => activeInput?.GetChannel1Name() ?? "CH1";
+    public string GetChannel2Name() => activeInput?.GetChannel2Name() ?? "CH2";
 }

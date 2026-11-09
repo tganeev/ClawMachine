@@ -10,7 +10,7 @@ public class SceneBuilder : MonoBehaviour
     {
         Debug.Log("[SceneBuilder] Инициализация...");
 
-        // 1. СОЗДАЕМ SOUND MANAGER (с защитой от удаления)
+        // 1. СОЗДАЕМ SOUND MANAGER (защита от удаления)
         if (SoundManager.Instance == null)
         {
             GameObject smObj = new GameObject("SoundManager");
@@ -44,48 +44,35 @@ public class SceneBuilder : MonoBehaviour
             GameObject menuObj = new GameObject("MainMenuManager");
             menuObj.AddComponent<MainMenuManager>();
         }
-    }
-
-    public void BuildGame(InputManager.ControlMode mode)
-    {
-        if (isBuilt) return;
-        isBuilt = true;
-
-        Debug.Log("[SceneBuilder] Очистка и сборка игры...");
-
-        // 1. БЕЗОПАСНАЯ ОЧИСТКА
-        // Мы НЕ используем DestroyImmediate для удаления меню, чтобы не сломать текущий кадр.
-        // Мы просто удаляем всё лишнее, кроме SoundManager и EventSystem.
-        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-        foreach (GameObject obj in allObjects)
-        {
-            if (obj != this.gameObject &&
-                obj.name != "SoundManager" &&
-                obj.name != "EventSystem")
-            {
-                // Удаляем именно объекты меню и старые камеры
-                if (obj.name.Contains("Camera") || obj.name.Contains("Menu") ||
-                    obj.name.Contains("Light") || obj.name.Contains("Canvas") ||
-                    obj.name.Contains("Manager") || obj.name.Contains("Model") ||
-                    obj.name.Contains("Floor") || obj.name.Contains("Toy_"))
-                {
-                    Destroy(obj);
-                }
-            }
-        }
-
-        // 2. ИГРОВАЯ КАМЕРА (с обязательным AudioListener)
-        GameObject camObj = new GameObject("Main Camera");
-        camObj.tag = "MainCamera";
-        Camera cam = camObj.AddComponent<Camera>();
-        camObj.AddComponent<AudioListener>(); // Звук в игре
 
         if (SoundManager.Instance != null)
         {
             SoundManager.Instance.StartMusic();
         }
+    }
 
+    public void BuildGame(InputManager.ControlMode mode, bool isTutorial = false)
+    {
+        if (isBuilt) return;
+        isBuilt = true;
 
+        Debug.Log($"[SceneBuilder] Сборка игры. Режим обучения: {isTutorial}");
+
+        // 1. ОЧИСТКА СЦЕНЫ
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        foreach (GameObject obj in allObjects)
+        {
+            if (obj != this.gameObject && obj.name != "SoundManager" && obj.name != "EventSystem")
+            {
+                Destroy(obj);
+            }
+        }
+
+        // 2. КАМЕРА
+        GameObject camObj = new GameObject("Main Camera");
+        camObj.tag = "MainCamera";
+        Camera cam = camObj.AddComponent<Camera>();
+        camObj.AddComponent<AudioListener>();
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f);
         cam.orthographic = false;
@@ -113,7 +100,7 @@ public class SceneBuilder : MonoBehaviour
             }
         }
 
-        // 5. ПОЛ
+        // 5. НЕВИДИМЫЙ ПОЛ
         GameObject invisibleFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         invisibleFloor.name = "InvisibleFloor";
         invisibleFloor.transform.position = new Vector3(0, 0.9f, 0);
@@ -142,13 +129,7 @@ public class SceneBuilder : MonoBehaviour
         // 8. ИГРУШКИ
         SpawnToys(controller);
 
-        // 9. УРОВНИ
-        GameObject lmObj = new GameObject("LevelManager");
-        LevelManager levelManager = lmObj.AddComponent<LevelManager>();
-        levelManager.clawController = controller;
-        levelManager.sceneBuilder = this;
-
-        // 10. ИГРОВОЙ UI
+        // 9. ИГРОВОЙ UI
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -157,8 +138,22 @@ public class SceneBuilder : MonoBehaviour
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1080, 1920);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
+
         canvasObj.AddComponent<GraphicRaycaster>();
 
+        // Safe Area контейнер
+        GameObject safeAreaObj = new GameObject("SafeArea");
+        safeAreaObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform saRt = safeAreaObj.AddComponent<RectTransform>();
+        saRt.anchorMin = Vector2.zero;
+        saRt.anchorMax = Vector2.one;
+        saRt.offsetMin = Vector2.zero;
+        saRt.offsetMax = Vector2.zero;
+        safeAreaObj.AddComponent<SafeAreaHandler>();
+
+        // EventSystem проверка (если удалили)
         if (Object.FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject es = new GameObject("EventSystem");
@@ -166,50 +161,111 @@ public class SceneBuilder : MonoBehaviour
             es.AddComponent<StandaloneInputModule>();
         }
 
-        CreateScoreBoard(canvasObj.transform, levelManager);
-        CreateBigLevelText(canvasObj.transform, levelManager);
-
-
-        // СОЗДАЕМ МИССИИ
-        GameObject mmObj = new GameObject("MissionManager");
-        MissionManager missionManager = mmObj.AddComponent<MissionManager>();
-        missionManager.Initialize(canvasObj.transform);
-
-        CreateScoreBoard(canvasObj.transform, levelManager);
-        CreateBigLevelText(canvasObj.transform, levelManager);
-
-        // 11. КНОПКИ
-        if (mode == InputManager.ControlMode.DirectButtons)
+        // --- ЛОГИКА УРОВНЕЙ ИЛИ ОБУЧЕНИЯ ---
+        if (isTutorial)
         {
-            CreateButton(canvasObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-150f, 100f), controller, true);
-            CreateButton(canvasObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(150f, 100f), controller, false);
+            // РЕЖИМ ОБУЧЕНИЯ
+            GameObject tmObj = new GameObject("TutorialManager");
+            TutorialManager tutorialManager = tmObj.AddComponent<TutorialManager>();
+            tutorialManager.Initialize(controller, safeAreaObj.transform);
         }
         else
         {
-            GameObject textObj = new GameObject("ControlsHint");
-            textObj.transform.SetParent(canvasObj.transform, false);
-            RectTransform rt = textObj.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.anchoredPosition = new Vector2(0, 150f);
-            rt.sizeDelta = new Vector2(800, 100);
+            // ОБЫЧНЫЙ РЕЖИМ
+            GameObject lmObj = new GameObject("LevelManager");
+            LevelManager levelManager = lmObj.AddComponent<LevelManager>();
+            levelManager.clawController = controller;
+            levelManager.sceneBuilder = this;
 
-            Text t = textObj.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            t.fontSize = 40;
-            t.color = Color.white;
-            t.alignment = TextAnchor.MiddleCenter;
+            GameObject mmObj = new GameObject("MissionManager");
+            MissionManager missionManager = mmObj.AddComponent<MissionManager>();
+            missionManager.Initialize(safeAreaObj.transform);
 
-            t.text = mode == InputManager.ControlMode.EMG
-                ? "Управление: A (Сжать) / D (Разжать)"
-                : "Управление: W (Сжать) / S (Разжать)";
+            CreateScoreBoard(safeAreaObj.transform, levelManager);
+            CreateBigLevelText(safeAreaObj.transform, levelManager);
         }
 
+        // --- УПРАВЛЕНИЕ (КНОПКИ, ИЛИ ПОЛОСКИ, ИЛИ ПОДСКАЗКА) ---
+        if (mode == InputManager.ControlMode.DirectButtons)
+        {
+            CreateButton(safeAreaObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-150f, 100f), controller, true);
+            CreateButton(safeAreaObj.transform, "Btn_Release", "РАЗОГНУТЬ", new Vector2(150f, 100f), controller, false);
+        }
+        else if (mode == InputManager.ControlMode.EMG)
+        {
+            // В ЭМГ режиме полоски SignalUI уже интерактивные, поэтому нам нужна только подсказка
+            CreateControlHint(safeAreaObj.transform, mode, "Тяни полоски вверх, чтобы напрячь мышцу");
+        }
+        else // SPPPR
+        {
+            CreateControlHint(safeAreaObj.transform, mode, "Управление: W (Сжать) / S (Разжать)");
+        }
+
+        // Полоски сигнала (создаются для ЭМГ и СПППР)
         if (mode != InputManager.ControlMode.DirectButtons)
         {
             GameObject sigObj = new GameObject("SignalUI");
+            sigObj.transform.SetParent(safeAreaObj.transform, false);
             SignalUI signalUI = sigObj.AddComponent<SignalUI>();
             signalUI.Initialize();
+        }
+    }
+
+    private void CreateControlHint(Transform parent, InputManager.ControlMode mode, string customText = "")
+    {
+        GameObject textObj = new GameObject("ControlsHint");
+        textObj.transform.SetParent(parent, false);
+        RectTransform rt = textObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.anchoredPosition = new Vector2(0, 150f);
+        rt.sizeDelta = new Vector2(800, 100);
+
+        Text t = textObj.AddComponent<Text>();
+        t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.fontSize = 36;
+        t.color = Color.white;
+        t.alignment = TextAnchor.MiddleCenter;
+
+        t.text = customText;
+    }
+
+    public void RebuildToMenu()
+    {
+        Debug.Log("[SceneBuilder] Возврат в меню...");
+
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+        foreach (GameObject obj in allObjects)
+        {
+            if (obj != this.gameObject && obj.name != "SoundManager" && obj.name != "EventSystem")
+            {
+                Destroy(obj);
+            }
+        }
+
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.StartMusic();
+        }
+
+        isBuilt = false;
+
+        if (Camera.main == null)
+        {
+            GameObject camObj = new GameObject("Menu Camera");
+            Camera cam = camObj.AddComponent<Camera>();
+            camObj.AddComponent<AudioListener>();
+            camObj.tag = "MainCamera";
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.1f, 0.1f, 0.12f);
+            cam.orthographic = true;
+            camObj.transform.position = new Vector3(0, 0, -10);
+        }
+
+        if (MainMenuManager.Instance == null)
+        {
+            GameObject menuObj = new GameObject("MainMenuManager");
+            menuObj.AddComponent<MainMenuManager>();
         }
     }
 

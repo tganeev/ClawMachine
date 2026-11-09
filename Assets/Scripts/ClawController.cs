@@ -387,6 +387,11 @@ public class ClawController : MonoBehaviour
         UpdateRopeAndHands();
     }
 
+    public bool IsHoldingToy()
+    {
+        return grabbedToy != null;
+    }
+
     void UpdateRopeAndHands()
     {
         if (fakeRope != null)
