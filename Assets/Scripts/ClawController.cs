@@ -229,7 +229,7 @@ public class ClawController : MonoBehaviour
     public void StartReleasing() { isReleasingActive = true; isGrabbingActive = false; }
     public void StopReleasing() { isReleasingActive = false; }
 
-    void Update()
+        void Update()
     {
         if (!isInitialized || clawPivot == null || waypoints == null) return;
 
@@ -250,10 +250,19 @@ public class ClawController : MonoBehaviour
         bool grabActive = false;
         bool releaseActive = false;
 
+        // Логика ввода
         if (InputManager.Instance != null && InputManager.Instance.currentMode != InputManager.ControlMode.DirectButtons)
         {
             float ch1 = InputManager.Instance.GetChannel1();
             float ch2 = InputManager.Instance.GetChannel2();
+
+            // ШТРАФ ЗА СПАЗМ (Изоляция)
+            if (ch1 > 0.5f && ch2 > 0.5f)
+            {
+                // Игрок напряг обе мышцы одновременно — клешня замирает
+                UpdateRopeAndHands();
+                return;
+            }
 
             if (isProportionalMode)
             {
@@ -267,6 +276,15 @@ public class ClawController : MonoBehaviour
 
                 if (grabActive) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
                 if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
+            }
+
+            // МЕХАНИКА УДЕРЖАНИЯ: если игрушка захвачена, но сигнал слабый — отпускаем
+            if (grabbedToy != null && !isLowering && !isGrabbing)
+            {
+                if (!grabActive) // Сигнал упал
+                {
+                    ReleaseGrabbedToy();
+                }
             }
         }
         else
@@ -297,6 +315,7 @@ public class ClawController : MonoBehaviour
             }
         }
 
+        // ... (дальше идет блок с isLowering, isGrabbing и движением по waypoints, его не меняем)
         if (isLowering)
         {
             if (clawPivot.position.y > minY)
@@ -330,7 +349,6 @@ public class ClawController : MonoBehaviour
                                 grabbedRigidbody.useGravity = false;
                             }
 
-                            // ЗВУК ЗАХВАТА
                             if (SoundManager.Instance != null) SoundManager.Instance.PlayGrab();
                         }
                     }

@@ -195,6 +195,13 @@ public class SceneBuilder : MonoBehaviour
                 ? "Управление: A (Сжать) / D (Разжать)"
                 : "Управление: W (Сжать) / S (Разжать)";
         }
+
+        if (mode != InputManager.ControlMode.DirectButtons)
+        {
+            GameObject sigObj = new GameObject("SignalUI");
+            SignalUI signalUI = sigObj.AddComponent<SignalUI>();
+            signalUI.Initialize();
+        }
     }
 
     public void SpawnToys(ClawController controller)
