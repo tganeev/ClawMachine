@@ -16,53 +16,149 @@ public class MissionManager : MonoBehaviour
     }
 
     private List<Mission> activeMissions = new List<Mission>();
-    private List<Text> missionTexts = new List<Text>();
+
+    private Image timerDigitTens;
+    private Image timerDigitOnes;
+    private Text missionsText;
 
     private float levelStartTime;
+    private float timeLimit = 60f;
     private int toysCollectedThisLevel = 0;
     private int totalToysRequired = 0;
     private bool hasUsedChannel2 = false;
     private bool hasUsedChannel1 = false;
     private bool hasFailed = false;
+    private bool isLevelCompleted = false;
+
+    private Sprite[] digitSprites = new Sprite[10];
 
     void Awake()
     {
         Instance = this;
+        GenerateDigitSprites();
     }
 
-    public void Initialize(Transform parentUI)
+    // --- ГЕНЕРАЦИЯ СПРАЙТОВ ---
+    private void GenerateDigitSprites()
     {
-        GameObject containerObj = new GameObject("MissionsContainer");
-        containerObj.transform.SetParent(parentUI, false);
-        RectTransform rt = containerObj.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0, 1);
-        rt.anchorMax = new Vector2(0, 1);
-        rt.pivot = new Vector2(0, 1);
-        rt.anchoredPosition = new Vector2(20, -180);
-        rt.sizeDelta = new Vector2(400, 300);
-
-        VerticalLayoutGroup layout = containerObj.AddComponent<VerticalLayoutGroup>();
-        layout.spacing = 10;
-        layout.childAlignment = TextAnchor.UpperLeft;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
-
-        for (int i = 0; i < 2; i++)
+        int size = 128;
+        for (int i = 0; i < 10; i++)
         {
-            GameObject textObj = new GameObject("Mission_" + i);
-            textObj.transform.SetParent(containerObj.transform, false);
-            RectTransform trt = textObj.AddComponent<RectTransform>();
-            trt.sizeDelta = new Vector2(400, 40);
-
-            Text t = textObj.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            t.fontSize = 24;
-            t.color = Color.white;
-            t.alignment = TextAnchor.MiddleLeft;
-            missionTexts.Add(t);
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            Color[] px = new Color[size * size];
+            for (int j = 0; j < px.Length; j++) px[j] = new Color(0, 0, 0, 0);
+            DrawDigitToPixels(px, size, i);
+            tex.SetPixels(px);
+            tex.Apply();
+            digitSprites[i] = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
         }
     }
 
+    private void DrawDigitToPixels(Color[] px, int size, int digit)
+    {
+        Color red = new Color(1f, 0f, 0f);
+        int thick = size / 10;
+        int margin = size / 10;
+        int w = size - margin * 2;
+        int h = size - margin * 2;
+        bool[] seg = new bool[7];
+        switch (digit)
+        {
+            case 0: seg = new bool[] { true, true, true, true, true, true, false }; break;
+            case 1: seg = new bool[] { false, true, true, false, false, false, false }; break;
+            case 2: seg = new bool[] { true, true, false, true, true, false, true }; break;
+            case 3: seg = new bool[] { true, true, true, true, false, false, true }; break;
+            case 4: seg = new bool[] { false, true, true, false, false, true, true }; break;
+            case 5: seg = new bool[] { true, false, true, true, false, true, true }; break;
+            case 6: seg = new bool[] { true, false, true, true, true, true, true }; break;
+            case 7: seg = new bool[] { true, true, true, false, false, false, false }; break;
+            case 8: seg = new bool[] { true, true, true, true, true, true, true }; break;
+            case 9: seg = new bool[] { true, true, true, true, false, true, true }; break;
+        }
+        if (seg[0]) DrawRect(px, size, margin + thick, margin + h - thick, w - thick * 2, thick, red);
+        if (seg[1]) DrawRect(px, size, margin + w - thick, margin + h / 2, thick, h / 2 - thick, red);
+        if (seg[2]) DrawRect(px, size, margin + w - thick, margin, thick, h / 2 - thick, red);
+        if (seg[3]) DrawRect(px, size, margin + thick, margin, w - thick * 2, thick, red);
+        if (seg[4]) DrawRect(px, size, margin, margin, thick, h / 2 - thick, red);
+        if (seg[5]) DrawRect(px, size, margin, margin + h / 2, thick, h / 2 - thick, red);
+        if (seg[6]) DrawRect(px, size, margin + thick, margin + h / 2 - thick / 2, w - thick * 2, thick, red);
+    }
+
+    private void DrawRect(Color[] px, int size, int x, int y, int w, int h, Color color)
+    {
+        for (int i = 0; i < w; i++)
+        {
+            for (int j = 0; j < h; j++)
+            {
+                int pxX = x + i;
+                int pxY = y + j;
+                if (pxX >= 0 && pxX < size && pxY >= 0 && pxY < size) px[pxY * size + pxX] = color;
+            }
+        }
+    }
+
+    // --- ИНИЦИАЛИЗАЦИЯ ---
+    public void Initialize(Transform canvasParent, Transform missionsAnchor)
+    {
+        GameObject timerBgObj = new GameObject("TimerBackground");
+        timerBgObj.transform.SetParent(canvasParent, false);
+        RectTransform bgRt = timerBgObj.AddComponent<RectTransform>();
+        bgRt.anchorMin = new Vector2(0.5f, 0f);
+        bgRt.anchorMax = new Vector2(0.5f, 0f);
+        bgRt.pivot = new Vector2(0.5f, 0f);
+        bgRt.anchoredPosition = new Vector2(-213.3f, 210f);
+        bgRt.sizeDelta = new Vector2(120f, 120f);
+        Image bgImg = timerBgObj.AddComponent<Image>();
+        bgImg.color = Color.black;
+
+        GameObject contentObj = new GameObject("Content");
+        contentObj.transform.SetParent(timerBgObj.transform, false);
+        RectTransform contentRt = contentObj.AddComponent<RectTransform>();
+        contentRt.anchorMin = Vector2.zero;
+        contentRt.anchorMax = Vector2.one;
+        contentRt.offsetMin = new Vector2(15f, 15f);
+        contentRt.offsetMax = new Vector2(-15f, -15f);
+
+        GameObject tensObj = new GameObject("Tens");
+        tensObj.transform.SetParent(contentObj.transform, false);
+        RectTransform tensRt = tensObj.AddComponent<RectTransform>();
+        tensRt.anchorMin = new Vector2(0f, 0f);
+        tensRt.anchorMax = new Vector2(0.5f, 1f);
+        tensRt.sizeDelta = new Vector2(-2, 0);
+        tensRt.anchoredPosition = new Vector2(0, 0);
+        timerDigitTens = tensObj.AddComponent<Image>();
+        timerDigitTens.preserveAspect = true;
+
+        GameObject onesObj = new GameObject("Ones");
+        onesObj.transform.SetParent(contentObj.transform, false);
+        RectTransform onesRt = onesObj.AddComponent<RectTransform>();
+        onesRt.anchorMin = new Vector2(0.5f, 0f);
+        onesRt.anchorMax = new Vector2(1f, 1f);
+        onesRt.sizeDelta = new Vector2(-2, 0);
+        onesRt.anchoredPosition = new Vector2(0, 0);
+        timerDigitOnes = onesObj.AddComponent<Image>();
+        timerDigitOnes.preserveAspect = true;
+
+        GameObject missionsObj = new GameObject("MissionsText");
+        missionsObj.transform.SetParent(missionsAnchor, false);
+        RectTransform mRt = missionsObj.AddComponent<RectTransform>();
+        mRt.anchorMin = Vector2.zero;
+        mRt.anchorMax = Vector2.one;
+        mRt.sizeDelta = Vector2.zero;
+
+        missionsText = missionsObj.AddComponent<Text>();
+        missionsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        missionsText.fontSize = 20;
+        missionsText.color = Color.white;
+        missionsText.alignment = TextAnchor.UpperLeft;
+        missionsText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        missionsText.verticalOverflow = VerticalWrapMode.Overflow;
+        missionsText.supportRichText = true;
+        missionsText.text = "";
+    }
+
+    // --- ЛОГИКА ---
     public void StartLevel(int level, LevelPlayMode playMode)
     {
         levelStartTime = Time.time;
@@ -70,39 +166,30 @@ public class MissionManager : MonoBehaviour
         hasUsedChannel2 = false;
         hasUsedChannel1 = false;
         hasFailed = false;
+        isLevelCompleted = false;
         totalToysRequired = 1;
 
         activeMissions.Clear();
 
-        List<Mission> pool = new List<Mission>();
+        activeMissions.Add(new Mission { description = "Собери все указанные игрушки", updateAction = CheckCollectAll });
 
-        pool.Add(new Mission { description = "Собери все игрушки", updateAction = CheckCollectAll });
-        pool.Add(new Mission { description = "Не отпускай захват в полете", updateAction = CheckHold });
-
-        float timeLimit = 40f + (level * 10f);
-        pool.Add(new Mission { description = $"Уложись в {timeLimit} сек", updateAction = () => CheckTime(timeLimit) });
-
-        // Адаптируем миссию изоляции под режим уровня
-        if (playMode == LevelPlayMode.Standard)
+        if (level == 1)
         {
-            pool.Add(new Mission { description = "Не используй 2-й канал", updateAction = CheckIsolation });
+            timeLimit = 50f;
+            activeMissions.Add(new Mission { description = "Собери за 50 секунд", updateAction = () => CheckTime(50f) });
+            activeMissions.Add(new Mission { description = "Используй только сжатие", updateAction = CheckIsolation });
         }
-        else if (playMode == LevelPlayMode.Inverted)
+        else if (level == 2)
         {
-            pool.Add(new Mission { description = "Не используй 1-й канал", updateAction = CheckIsolation });
+            timeLimit = 70f;
+            activeMissions.Add(new Mission { description = "Собери за 70 секунд", updateAction = () => CheckTime(70f) });
+            activeMissions.Add(new Mission { description = "Используй только разжатие", updateAction = CheckIsolation });
         }
-        else // Dual
+        else
         {
-            pool.Add(new Mission { description = "Плавно сожми клешню до 100%", updateAction = CheckPrecision });
-        }
-
-        pool.Add(new Mission { description = "Не отпускай игрушку раньше отсека", updateAction = CheckAccuracy });
-
-        var selected = pool.OrderBy(x => Random.value).Take(2).ToList();
-
-        foreach (var m in selected)
-        {
-            activeMissions.Add(m);
+            timeLimit = 90f;
+            activeMissions.Add(new Mission { description = "Собери за 90 секунд", updateAction = () => CheckTime(90f) });
+            activeMissions.Add(new Mission { description = "Используй обе мышцы", updateAction = CheckDualChannels });
         }
 
         UpdateMissionUI();
@@ -114,50 +201,35 @@ public class MissionManager : MonoBehaviour
             activeMissions[0].isCompleted = true;
     }
 
-    private void CheckHold()
-    {
-        if (hasFailed)
-        {
-            var m = activeMissions.Find(x => x.description.Contains("Удержи"));
-            if (m != null) m.isFailed = true;
-        }
-    }
-
     private void CheckTime(float limit)
     {
-        if (Time.time - levelStartTime > limit)
+        if (Time.time - levelStartTime > limit && toysCollectedThisLevel < totalToysRequired)
         {
-            var m = activeMissions.Find(x => x.description.Contains("Уложись"));
+            var m = activeMissions.Find(x => x.description.Contains("Собери за"));
             if (m != null) m.isFailed = true;
         }
     }
 
     private void CheckIsolation()
     {
-        var m = activeMissions.Find(x => x.description.Contains("канал"));
-        if (m != null)
+        if (LevelManager.Instance.currentLevel == 1 && hasUsedChannel2)
         {
-            if (m.description.Contains("2-й") && hasUsedChannel2) m.isFailed = true;
-            if (m.description.Contains("1-й") && hasUsedChannel1) m.isFailed = true;
+            var m = activeMissions.Find(x => x.description.Contains("только сжатие"));
+            if (m != null) m.isFailed = true;
+        }
+        else if (LevelManager.Instance.currentLevel == 2 && hasUsedChannel1)
+        {
+            var m = activeMissions.Find(x => x.description.Contains("только разжатие"));
+            if (m != null) m.isFailed = true;
         }
     }
 
-    private void CheckAccuracy()
+    private void CheckDualChannels()
     {
-        var m = activeMissions.Find(x => x.description.Contains("отсека"));
-        if (m != null && hasFailed) m.isFailed = true;
-    }
-
-    private void CheckPrecision()
-    {
-        if (InputManager.Instance == null) return;
-
-        float ch1 = InputManager.Instance.GetChannel1();
-
-        if (ch1 >= 0.95f)
+        var m = activeMissions.Find(x => x.description.Contains("обе мышцы"));
+        if (m != null && hasUsedChannel1 && hasUsedChannel2)
         {
-            var m = activeMissions.Find(x => x.description.Contains("Плавно"));
-            if (m != null) m.isCompleted = true;
+            m.isCompleted = true;
         }
     }
 
@@ -170,17 +242,15 @@ public class MissionManager : MonoBehaviour
     {
         if (wasWrongChannel)
         {
-            // Определяем, какой канал был "не тем", исходя из описания миссии
-            var m2 = activeMissions.Find(x => x.description.Contains("2-й"));
-            var m1 = activeMissions.Find(x => x.description.Contains("1-й"));
-
-            if (m2 != null) hasUsedChannel2 = true;
-            if (m1 != null) hasUsedChannel1 = true;
+            if (LevelManager.Instance.currentLevel == 1 && !hasUsedChannel2) hasUsedChannel2 = true;
+            else if (LevelManager.Instance.currentLevel == 2 && !hasUsedChannel1) hasUsedChannel1 = true;
+            else
+            {
+                if (!hasUsedChannel1) hasUsedChannel1 = true;
+                if (!hasUsedChannel2) hasUsedChannel2 = true;
+            }
         }
-        else
-        {
-            hasFailed = true;
-        }
+        else hasFailed = true;
     }
 
     public void SetTotalToys(int count)
@@ -188,38 +258,89 @@ public class MissionManager : MonoBehaviour
         totalToysRequired = count;
     }
 
-    void Update()
+        void Update()
     {
         if (activeMissions.Count == 0) return;
+        if (isLevelCompleted) return;
 
+        // Таймер
+        float timeLeft = timeLimit - (Time.time - levelStartTime);
+        int timeInt = Mathf.Max(0, Mathf.CeilToInt(timeLeft));
+
+        if (timerDigitTens != null && timerDigitOnes != null)
+        {
+            int tens = timeInt / 10;
+            int ones = timeInt % 10;
+            if (tens > 9) tens = 9;
+
+            timerDigitTens.sprite = digitSprites[tens];
+            timerDigitOnes.sprite = digitSprites[ones];
+        }
+
+        // Проверка миссий в процессе игры
         foreach (var m in activeMissions)
         {
             if (!m.isCompleted && !m.isFailed && m.updateAction != null)
-            {
                 m.updateAction.Invoke();
-            }
         }
 
-        UpdateMissionUI();
+        // --- ЛОГИКА ПЕРЕХОДА ---
+        // Проверяем, собраны ли все игрушки (первая миссия)
+        bool mainMissionDone = activeMissions[0].isCompleted;
+
+        if (mainMissionDone)
+        {
+            isLevelCompleted = true;
+
+            // ЦЕПНАЯ РЕАКЦИЯ: если главная миссия выполнена,
+            // остальные миссии становятся выполненными, ЕСЛИ они не провалены
+            for (int i = 1; i < activeMissions.Count; i++)
+            {
+                if (!activeMissions[i].isFailed)
+                {
+                    activeMissions[i].isCompleted = true;
+                }
+            }
+
+            UpdateMissionUI(); // Обновляем UI, чтобы закрасить зеленым
+
+            // Проверяем, есть ли красные (проваленные) миссии
+            bool anyFailed = activeMissions.Any(m => m.isFailed);
+
+            if (!anyFailed)
+            {
+                Debug.Log("[MissionManager] Все миссии выполнены! Переход.");
+                Invoke(nameof(TriggerLevelTransition), 1.5f);
+            }
+            else
+            {
+                Debug.Log("[MissionManager] Есть проваленные миссии! Перезапуск.");
+                Invoke(nameof(RestartLevel), 2f);
+            }
+        }
+    }
+
+    void TriggerLevelTransition()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.StartTransitionToNextLevel();
+    }
+
+    void RestartLevel()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.RestartCurrentLevel();
     }
 
     void UpdateMissionUI()
     {
-        for (int i = 0; i < missionTexts.Count; i++)
-        {
-            if (i < activeMissions.Count)
-            {
-                var m = activeMissions[i];
-                string statusIcon = m.isCompleted ? "✓ " : (m.isFailed ? "✗ " : "• ");
-                string colorHex = m.isCompleted ? "00FF00" : (m.isFailed ? "FF0000" : "FFFFFF");
+        if (missionsText == null) return;
 
-                missionTexts[i].text = $"<color=#{colorHex}>{statusIcon}{m.description}</color>";
-                missionTexts[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                missionTexts[i].gameObject.SetActive(false);
-            }
+        string displayText = "";
+        foreach (var m in activeMissions)
+        {
+            string status = m.isCompleted ? "<color=green>✓</color>" : (m.isFailed ? "<color=red>✗</color>" : "•");
+            string color = m.isCompleted ? "green" : (m.isFailed ? "red" : "white");
+            displayText += $"{status} <color={color}>{m.description}</color>\n";
         }
+        missionsText.text = displayText;
     }
 }

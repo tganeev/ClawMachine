@@ -10,14 +10,12 @@ public class SceneBuilder : MonoBehaviour
     {
         Debug.Log("[SceneBuilder] Инициализация...");
 
-        // 1. СОЗДАЕМ SOUND MANAGER (защита от удаления)
         if (SoundManager.Instance == null)
         {
             GameObject smObj = new GameObject("SoundManager");
             smObj.AddComponent<SoundManager>();
         }
 
-        // 2. ПРОВЕРКА КАМЕРЫ
         if (Camera.main == null)
         {
             GameObject camObj = new GameObject("Menu Camera");
@@ -30,7 +28,6 @@ public class SceneBuilder : MonoBehaviour
             camObj.transform.position = new Vector3(0, 0, -10);
         }
 
-        // 3. ПРОВЕРКА EVENTSYSTEM
         if (FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject esObj = new GameObject("EventSystem");
@@ -38,16 +35,10 @@ public class SceneBuilder : MonoBehaviour
             esObj.AddComponent<StandaloneInputModule>();
         }
 
-        // 4. ЗАПУСКАЕМ МЕНЮ
         if (MainMenuManager.Instance == null)
         {
             GameObject menuObj = new GameObject("MainMenuManager");
             menuObj.AddComponent<MainMenuManager>();
-        }
-
-        if (SoundManager.Instance != null)
-        {
-            SoundManager.Instance.StartMusic();
         }
     }
 
@@ -56,9 +47,6 @@ public class SceneBuilder : MonoBehaviour
         if (isBuilt) return;
         isBuilt = true;
 
-        Debug.Log($"[SceneBuilder] Сборка игры. Режим обучения: {isTutorial}");
-
-        // 1. ОЧИСТКА СЦЕНЫ
         GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         foreach (GameObject obj in allObjects)
         {
@@ -68,7 +56,8 @@ public class SceneBuilder : MonoBehaviour
             }
         }
 
-        // 2. КАМЕРА
+        if (SoundManager.Instance != null) SoundManager.Instance.StartMusic();
+
         GameObject camObj = new GameObject("Main Camera");
         camObj.tag = "MainCamera";
         Camera cam = camObj.AddComponent<Camera>();
@@ -80,13 +69,11 @@ public class SceneBuilder : MonoBehaviour
         camObj.transform.position = new Vector3(0f, 2.2f, -4.5f);
         camObj.transform.rotation = Quaternion.Euler(10f, 0f, 0f);
 
-        // 3. СВЕТ
         GameObject lightObj = new GameObject("Light");
         Light light = lightObj.AddComponent<Light>();
         light.type = LightType.Directional;
         lightObj.transform.rotation = Quaternion.Euler(50, -30, 0);
 
-        // 4. АВТОМАТ
         GameObject clawMachinePrefab = Resources.Load<GameObject>("claw_machine");
         if (clawMachinePrefab != null)
         {
@@ -100,19 +87,16 @@ public class SceneBuilder : MonoBehaviour
             }
         }
 
-        // 5. НЕВИДИМЫЙ ПОЛ
         GameObject invisibleFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         invisibleFloor.name = "InvisibleFloor";
         invisibleFloor.transform.position = new Vector3(0, 0.9f, 0);
         invisibleFloor.transform.localScale = new Vector3(4f, 0.2f, 4f);
         Destroy(invisibleFloor.GetComponent<Renderer>());
 
-        // 6. ВВОД
         GameObject imObj = new GameObject("InputManager");
         InputManager inputManager = imObj.AddComponent<InputManager>();
         inputManager.UpdateInputMode(mode);
 
-        // 7. КЛЕШНЯ
         GameObject gm = new GameObject("GameManager");
         ClawController controller = gm.AddComponent<ClawController>();
 
@@ -126,10 +110,9 @@ public class SceneBuilder : MonoBehaviour
         controller.grabDistance = 0.3f;
         controller.ropeTopY = 3.5f;
 
-        // 8. ИГРУШКИ
         SpawnToys(controller);
 
-        // 9. ИГРОВОЙ UI
+        // --- UI ---
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -140,10 +123,8 @@ public class SceneBuilder : MonoBehaviour
         scaler.referenceResolution = new Vector2(1080, 1920);
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
-
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Safe Area контейнер
         GameObject safeAreaObj = new GameObject("SafeArea");
         safeAreaObj.transform.SetParent(canvasObj.transform, false);
         RectTransform saRt = safeAreaObj.AddComponent<RectTransform>();
@@ -153,7 +134,6 @@ public class SceneBuilder : MonoBehaviour
         saRt.offsetMax = Vector2.zero;
         safeAreaObj.AddComponent<SafeAreaHandler>();
 
-        // EventSystem проверка (если удалили)
         if (Object.FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject es = new GameObject("EventSystem");
@@ -164,28 +144,27 @@ public class SceneBuilder : MonoBehaviour
         // --- ЛОГИКА УРОВНЕЙ ИЛИ ОБУЧЕНИЯ ---
         if (isTutorial)
         {
-            // РЕЖИМ ОБУЧЕНИЯ
             GameObject tmObj = new GameObject("TutorialManager");
             TutorialManager tutorialManager = tmObj.AddComponent<TutorialManager>();
             tutorialManager.Initialize(controller, safeAreaObj.transform);
         }
         else
         {
-            // ОБЫЧНЫЙ РЕЖИМ
             GameObject lmObj = new GameObject("LevelManager");
             LevelManager levelManager = lmObj.AddComponent<LevelManager>();
             levelManager.clawController = controller;
             levelManager.sceneBuilder = this;
 
+            CreateScoreBoard(safeAreaObj.transform, levelManager);
+
             GameObject mmObj = new GameObject("MissionManager");
             MissionManager missionManager = mmObj.AddComponent<MissionManager>();
-            missionManager.Initialize(safeAreaObj.transform);
+            missionManager.Initialize(safeAreaObj.transform, levelManager.missionsAnchor);
 
-            CreateScoreBoard(safeAreaObj.transform, levelManager);
             CreateBigLevelText(safeAreaObj.transform, levelManager);
         }
 
-        // --- УПРАВЛЕНИЕ (КНОПКИ, ИЛИ ПОЛОСКИ, ИЛИ ПОДСКАЗКА) ---
+        // --- УПРАВЛЕНИЕ ---
         if (mode == InputManager.ControlMode.DirectButtons)
         {
             CreateButton(safeAreaObj.transform, "Btn_Grab", "СОГНУТЬ", new Vector2(-150f, 100f), controller, true);
@@ -193,15 +172,13 @@ public class SceneBuilder : MonoBehaviour
         }
         else if (mode == InputManager.ControlMode.EMG)
         {
-            // В ЭМГ режиме полоски SignalUI уже интерактивные, поэтому нам нужна только подсказка
-            CreateControlHint(safeAreaObj.transform, mode, "Тяни полоски вверх, чтобы напрячь мышцу");
+            // Подсказка убрана
         }
-        else // SPPPR
+        else
         {
             CreateControlHint(safeAreaObj.transform, mode, "Управление: W (Сжать) / S (Разжать)");
         }
 
-        // Полоски сигнала (создаются для ЭМГ и СПППР)
         if (mode != InputManager.ControlMode.DirectButtons)
         {
             GameObject sigObj = new GameObject("SignalUI");
@@ -209,6 +186,150 @@ public class SceneBuilder : MonoBehaviour
             SignalUI signalUI = sigObj.AddComponent<SignalUI>();
             signalUI.Initialize();
         }
+    }
+
+        private void CreateScoreBoard(Transform parent, LevelManager levelManager)
+    {
+        GameObject scoreBoardObj = new GameObject("ScoreBoard");
+        scoreBoardObj.transform.SetParent(parent, false);
+
+        RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
+
+        // УМЕНЬШИЛИ ВЫСОТУ на 5 (было 160, стало 155)
+        rt.sizeDelta = new Vector2(680f, 150f);
+
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+
+        rt.anchoredPosition = new Vector2(0f, -15f);
+
+        Image img = scoreBoardObj.AddComponent<Image>();
+        img.color = new Color(0.15f, 0.15f, 0.15f, 0.95f);
+
+        // --- КОЛОНКА 1: УРОВЕНЬ (Слева) ---
+        GameObject levelPanel = new GameObject("LevelPanel");
+        levelPanel.transform.SetParent(scoreBoardObj.transform, false);
+        RectTransform lprt = levelPanel.AddComponent<RectTransform>();
+        lprt.anchorMin = new Vector2(0f, 0f);
+        lprt.anchorMax = new Vector2(0.20f, 1f);
+        lprt.offsetMin = Vector2.zero;
+        lprt.offsetMax = Vector2.zero;
+
+        GameObject lvlTitleObj = new GameObject("LvlTitle");
+        lvlTitleObj.transform.SetParent(levelPanel.transform, false);
+        RectTransform ltRt = lvlTitleObj.AddComponent<RectTransform>();
+        ltRt.anchorMin = new Vector2(0f, 1f);
+        ltRt.anchorMax = new Vector2(1f, 1f);
+        ltRt.pivot = new Vector2(0.5f, 1f);
+        ltRt.anchoredPosition = new Vector2(0, -5f);
+        ltRt.sizeDelta = new Vector2(0, 30f);
+
+        Text lvlTitle = lvlTitleObj.AddComponent<Text>();
+        lvlTitle.text = "УРОВЕНЬ";
+        lvlTitle.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lvlTitle.alignment = TextAnchor.MiddleCenter;
+        lvlTitle.color = Color.white;
+        lvlTitle.fontStyle = FontStyle.Bold;
+        lvlTitle.fontSize = 20;
+
+        GameObject levelTextObj = new GameObject("LevelNumber");
+        levelTextObj.transform.SetParent(levelPanel.transform, false);
+        RectTransform ltrt = levelTextObj.AddComponent<RectTransform>();
+        ltrt.anchorMin = new Vector2(0f, 0f);
+        ltrt.anchorMax = new Vector2(1f, 1f);
+        ltrt.offsetMin = new Vector2(0, 5f);
+        ltrt.offsetMax = new Vector2(0, -35f);
+
+        Text levelText = levelTextObj.AddComponent<Text>();
+        levelText.text = "1";
+        levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        levelText.alignment = TextAnchor.MiddleCenter;
+        levelText.color = Color.white;
+        levelText.fontSize = 44;
+        levelText.fontStyle = FontStyle.Bold;
+
+        CreateDivider(scoreBoardObj.transform, 0.20f);
+
+        // --- КОЛОНКА 2: МИССИИ (Центр) ---
+        GameObject missionsPanel = new GameObject("MissionsPanel");
+        missionsPanel.transform.SetParent(scoreBoardObj.transform, false);
+        RectTransform mprt = missionsPanel.AddComponent<RectTransform>();
+        mprt.anchorMin = new Vector2(0.20f, 0f);
+        mprt.anchorMax = new Vector2(0.75f, 1f);
+        mprt.offsetMin = new Vector2(10f, 5f);
+        mprt.offsetMax = new Vector2(-10f, -5f);
+
+        GameObject titleObj = new GameObject("TitleText");
+        titleObj.transform.SetParent(missionsPanel.transform, false);
+        RectTransform trt = titleObj.AddComponent<RectTransform>();
+        trt.anchorMin = new Vector2(0f, 1f);
+        trt.anchorMax = new Vector2(0f, 1f);
+        trt.pivot = new Vector2(0f, 1f);
+        trt.anchoredPosition = new Vector2(5f, -5f);
+        trt.sizeDelta = new Vector2(200f, 30f);
+
+        Text titleText = titleObj.AddComponent<Text>();
+        titleText.text = "МИССИИ:";
+        titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        titleText.alignment = TextAnchor.MiddleLeft;
+        titleText.color = Color.white;
+        titleText.fontStyle = FontStyle.Bold;
+        titleText.fontSize = 22;
+
+        GameObject missionsAnchor = new GameObject("MissionsAnchor");
+        missionsAnchor.transform.SetParent(missionsPanel.transform, false);
+        RectTransform mart = missionsAnchor.AddComponent<RectTransform>();
+        mart.anchorMin = Vector2.zero;
+        mart.anchorMax = Vector2.one;
+        mart.offsetMin = new Vector2(5f, 5f);
+        mart.offsetMax = new Vector2(-5f, -35f);
+
+        levelManager.missionsAnchor = missionsAnchor.transform;
+
+        CreateDivider(scoreBoardObj.transform, 0.75f);
+
+        // --- КОЛОНКА 3: ИКОНКИ (Справа) ---
+        GameObject iconsPanel = new GameObject("IconsPanel");
+        iconsPanel.transform.SetParent(scoreBoardObj.transform, false);
+        RectTransform iprt = iconsPanel.AddComponent<RectTransform>();
+        iprt.anchorMin = new Vector2(0.75f, 0f);
+        iprt.anchorMax = new Vector2(1f, 1f);
+        iprt.offsetMin = new Vector2(5f, 5f);
+        iprt.offsetMax = new Vector2(-5f, -5f);
+
+        GameObject containerObj = new GameObject("IconsContainer");
+        containerObj.transform.SetParent(iconsPanel.transform, false);
+        RectTransform crt = containerObj.AddComponent<RectTransform>();
+        crt.anchorMin = Vector2.zero;
+        crt.anchorMax = Vector2.one;
+        crt.sizeDelta = Vector2.zero;
+
+        GridLayoutGroup grid = containerObj.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(50f, 50f);
+        grid.spacing = new Vector2(5f, 5f);
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+        grid.childAlignment = TextAnchor.MiddleCenter;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+
+        levelManager.levelText = levelText;
+        levelManager.iconsContainer = containerObj.transform;
+    }
+
+    private void CreateDivider(Transform parent, float anchorX)
+    {
+        GameObject divider = new GameObject("Divider");
+        divider.transform.SetParent(parent, false);
+        RectTransform divRt = divider.AddComponent<RectTransform>();
+        divRt.anchorMin = new Vector2(anchorX, 0f);
+        divRt.anchorMax = new Vector2(anchorX, 1f);
+        divRt.pivot = new Vector2(0.5f, 0.5f);
+        divRt.anchoredPosition = Vector2.zero;
+        divRt.sizeDelta = new Vector2(2f, -20f);
+        Image divImg = divider.AddComponent<Image>();
+        divImg.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
     }
 
     private void CreateControlHint(Transform parent, InputManager.ControlMode mode, string customText = "")
@@ -226,26 +347,16 @@ public class SceneBuilder : MonoBehaviour
         t.fontSize = 36;
         t.color = Color.white;
         t.alignment = TextAnchor.MiddleCenter;
-
         t.text = customText;
     }
 
     public void RebuildToMenu()
     {
-        Debug.Log("[SceneBuilder] Возврат в меню...");
-
         GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         foreach (GameObject obj in allObjects)
         {
             if (obj != this.gameObject && obj.name != "SoundManager" && obj.name != "EventSystem")
-            {
                 Destroy(obj);
-            }
-        }
-
-        if (SoundManager.Instance != null)
-        {
-            SoundManager.Instance.StartMusic();
         }
 
         isBuilt = false;
@@ -343,61 +454,6 @@ public class SceneBuilder : MonoBehaviour
 
             controller.toys.Add(toy);
         }
-    }
-
-    private void CreateScoreBoard(Transform parent, LevelManager levelManager)
-    {
-        GameObject scoreBoardObj = new GameObject("ScoreBoard");
-        scoreBoardObj.transform.SetParent(parent, false);
-
-        RectTransform rt = scoreBoardObj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(480f, 100f);
-        rt.anchorMin = new Vector2(0.5f, 1f);
-        rt.anchorMax = new Vector2(0.5f, 1f);
-        rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, -40f);
-
-        Image img = scoreBoardObj.AddComponent<Image>();
-        img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-
-        GameObject levelTextObj = new GameObject("LevelText");
-        levelTextObj.transform.SetParent(scoreBoardObj.transform, false);
-        RectTransform lrt = levelTextObj.AddComponent<RectTransform>();
-        lrt.anchorMin = new Vector2(0f, 0.5f);
-        lrt.anchorMax = new Vector2(0f, 0.5f);
-        lrt.pivot = new Vector2(0f, 0.5f);
-        lrt.anchoredPosition = new Vector2(20f, 0f);
-        lrt.sizeDelta = new Vector2(120f, 80f);
-
-        Text levelText = levelTextObj.AddComponent<Text>();
-        levelText.text = "lvl: 1";
-        levelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        levelText.alignment = TextAnchor.MiddleLeft;
-        levelText.color = Color.white;
-        levelText.fontSize = 36;
-
-        GameObject containerObj = new GameObject("IconsContainer");
-        containerObj.transform.SetParent(scoreBoardObj.transform, false);
-        RectTransform crt = containerObj.AddComponent<RectTransform>();
-        crt.anchorMin = new Vector2(0f, 0.5f);
-        crt.anchorMax = new Vector2(1f, 0.5f);
-        crt.pivot = new Vector2(0.5f, 0.5f);
-        crt.offsetMin = new Vector2(140f, -35f);
-        crt.offsetMax = new Vector2(-20f, 35f);
-
-        HorizontalLayoutGroup layout = containerObj.AddComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleCenter;
-        layout.spacing = 15f;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
-
-        ScoreManager scoreManager = scoreBoardObj.AddComponent<ScoreManager>();
-        scoreManager.scoreText = null;
-
-        levelManager.levelText = levelText;
-        levelManager.iconsContainer = containerObj.transform;
     }
 
     private void CreateBigLevelText(Transform parent, LevelManager levelManager)

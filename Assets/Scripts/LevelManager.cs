@@ -5,9 +5,9 @@ using System.Linq;
 
 public enum LevelPlayMode
 {
-    Standard, // Ур. 1: Канал 1 - сжать (пропорционально)
-    Inverted, // Ур. 2: Канал 2 - сжать (пропорционально)
-    Dual      // Ур. 3: Канал 1 - сжать, Канал 2 - разжать
+    Standard,
+    Inverted,
+    Dual
 }
 
 public class LevelManager : MonoBehaviour
@@ -28,6 +28,7 @@ public class LevelManager : MonoBehaviour
     [Header("UI Ссылки")]
     public Text levelText;
     public Transform iconsContainer;
+    public Transform missionsAnchor;
     public Text bigLevelText;
 
     [Header("Ссылки")]
@@ -35,6 +36,7 @@ public class LevelManager : MonoBehaviour
     public SceneBuilder sceneBuilder;
 
     private Dictionary<string, bool> collectedThisLevel = new Dictionary<string, bool>();
+    public bool isTransitioning = false;
 
     void Awake()
     {
@@ -48,6 +50,7 @@ public class LevelManager : MonoBehaviour
 
     public void StartLevel(int level)
     {
+        isTransitioning = false;
         currentLevel = level;
         collectedThisLevel.Clear();
 
@@ -61,12 +64,6 @@ public class LevelManager : MonoBehaviour
                 levelText.color = Color.yellow;
                 levelText.alignment = TextAnchor.MiddleCenter;
                 levelText.fontSize = 40;
-
-                RectTransform lrt = levelText.GetComponent<RectTransform>();
-                lrt.anchorMin = new Vector2(0f, 0.5f);
-                lrt.anchorMax = new Vector2(1f, 0.5f);
-                lrt.offsetMin = new Vector2(0f, -40f);
-                lrt.offsetMax = new Vector2(0f, 40f);
             }
 
             ClearIcons();
@@ -76,16 +73,10 @@ public class LevelManager : MonoBehaviour
 
         if (levelText != null)
         {
-            levelText.text = $"lvl: {level}";
+            // Выводим просто номер уровня, так как слово "УРОВЕНЬ" уже есть сверху
+            levelText.text = level.ToString();
             levelText.color = Color.white;
-            levelText.alignment = TextAnchor.MiddleLeft;
-            levelText.fontSize = 36;
-
-            RectTransform lrt = levelText.GetComponent<RectTransform>();
-            lrt.anchorMin = new Vector2(0f, 0.5f);
-            lrt.anchorMax = new Vector2(0f, 0.5f);
-            lrt.offsetMin = new Vector2(15f, -40f);
-            lrt.offsetMax = new Vector2(135f, 40f);
+            levelText.fontSize = 48;
         }
 
         ShowBigText($"Уровень {level}", 2f);
@@ -100,7 +91,6 @@ public class LevelManager : MonoBehaviour
             sceneBuilder.SpawnToys(clawController);
         }
 
-        // НАСТРОЙКА РЕЖИМА УРОВНЯ
         LevelPlayMode mode = LevelPlayMode.Standard;
         if (level == 2) mode = LevelPlayMode.Inverted;
         else if (level >= 3) mode = LevelPlayMode.Dual;
@@ -117,6 +107,37 @@ public class LevelManager : MonoBehaviour
         }
 
         UpdateIconsUI();
+    }
+
+    public void StartTransitionToNextLevel()
+    {
+        if (isTransitioning) return;
+        isTransitioning = true;
+
+        Debug.Log("[LevelManager] Переход на следующий уровень!");
+
+        // Запускаем задержку: 1.5 секунды игрок смотрит на зеленые галочки,
+        // а затем появляется большой текст
+        Invoke(nameof(ShowLevelCompletedText), 1.5f);
+    }
+
+     private void ShowLevelCompletedText()
+    {
+        ShowBigText("УРОВЕНЬ ПРОЙДЕН!", 2f);
+
+        // Еще через 2 секунды (после показа текста) загружаем следующий уровень
+        Invoke(nameof(GoToNextLevel), 2f);
+    }
+
+    private void GoToNextLevel()
+    {
+        StartLevel(currentLevel + 1);
+    }
+
+    public void RestartCurrentLevel()
+    {
+        Debug.Log("[LevelManager] Перезапуск текущего уровня.");
+        StartLevel(currentLevel); // Запускаем тот же уровень заново
     }
 
     private void ShowBigText(string message, float duration)
@@ -155,17 +176,7 @@ public class LevelManager : MonoBehaviour
             {
                 MissionManager.Instance.OnToyCollected();
             }
-
-            if (collectedThisLevel.Values.All(v => v == true))
-            {
-                Invoke(nameof(GoToNextLevel), 3f);
-            }
         }
-    }
-
-    private void GoToNextLevel()
-    {
-        StartLevel(currentLevel + 1);
     }
 
     private void UpdateIconsUI()
