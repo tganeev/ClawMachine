@@ -5321,3 +5321,4 @@ Received Import Request.
 Start importing Packages/com.unity.inputsystem/InputSystem/Runtime/Actions/Composites/ButtonWithTwoModifiers.cs using Guid(62dcc18c42c2246bdaed7fe210b77118) Importer(2089858483,b0f066a214c2f5e87bad3c948f4d605d) (ScriptedImporter) -> (artifact id: '52c12ff7d8d2230006bf5088e043a291') in 0.003172634 seconds
 Number of updated asset objects reloaded before import = 0Number of asset objects unloaded after import = 0
 
+AssetImportWorkerClient::OnTransportError - code=2 error=End of file

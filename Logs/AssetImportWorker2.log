@@ -4978,3 +4978,4 @@ Start importing Packages/com.unity.inputsystem/InputSystem/Runtime/Plugins/Playe
  -> (artifact id: 'facd380ac9dccfd3d2b23cae6ac3c13a') in 0.157201466 seconds
 Number of updated asset objects reloaded before import = 0Number of asset objects unloaded after import = 16
 
+AssetImportWorkerClient::OnTransportError - code=2 error=End of file
