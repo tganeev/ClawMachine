@@ -3,6 +3,13 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
 
+public enum LevelPlayMode
+{
+    Standard, // Ур. 1: Канал 1 - сжать (пропорционально)
+    Inverted, // Ур. 2: Канал 2 - сжать (пропорционально)
+    Dual      // Ур. 3: Канал 1 - сжать, Канал 2 - разжать
+}
+
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance;
@@ -93,9 +100,19 @@ public class LevelManager : MonoBehaviour
             sceneBuilder.SpawnToys(clawController);
         }
 
+        // НАСТРОЙКА РЕЖИМА УРОВНЯ
+        LevelPlayMode mode = LevelPlayMode.Standard;
+        if (level == 2) mode = LevelPlayMode.Inverted;
+        else if (level >= 3) mode = LevelPlayMode.Dual;
+
+        if (clawController != null)
+        {
+            clawController.SetPlayMode(mode);
+        }
+
         if (MissionManager.Instance != null)
         {
-            MissionManager.Instance.StartLevel(level);
+            MissionManager.Instance.StartLevel(level, mode);
             MissionManager.Instance.SetTotalToys(levelTargets[level - 1].Length);
         }
 

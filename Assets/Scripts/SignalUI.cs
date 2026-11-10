@@ -21,8 +21,8 @@ public class SignalUI : MonoBehaviour
         scaler.referenceResolution = new Vector2(1080, 1920);
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Сдвигаем весь блок правее (X = 80) и поднимаем выше (Y = 280)
-        Vector2 centerPos = new Vector2(80f, 280f);
+        // Опускаем блок ниже (Y = 210), чтобы цифры встали ровно под джойстиком
+        Vector2 centerPos = new Vector2(80f, 210f);
 
         // Левая шкала (Канал 1)
         CreateProperSlider(canvasObj.transform, centerPos + new Vector2(-80f, 0), true, "Сжать");
@@ -43,7 +43,6 @@ public class SignalUI : MonoBehaviour
         sliderRt.pivot = new Vector2(0.5f, 0f);
         sliderRt.anchoredPosition = pos;
 
-        // Высота самой шкалы осталась 170
         sliderRt.sizeDelta = new Vector2(60, 170f);
 
         Slider slider = sliderObj.AddComponent<Slider>();
@@ -115,7 +114,8 @@ public class SignalUI : MonoBehaviour
         vRt.anchorMin = new Vector2(0.5f, 1f);
         vRt.anchorMax = new Vector2(0.5f, 1f);
         vRt.pivot = new Vector2(0.5f, 0f);
-        vRt.anchoredPosition = new Vector2(0, 10);
+        // Немного увеличим отступ от шкалы вверх, чтобы цифры были над полоской
+        vRt.anchoredPosition = new Vector2(0, 15);
         vRt.sizeDelta = new Vector2(100, 40);
 
         Text valText = valueObj.AddComponent<Text>();
@@ -149,8 +149,8 @@ public class SignalUI : MonoBehaviour
         lrt.anchorMax = new Vector2(0.5f, 0);
         lrt.pivot = new Vector2(0.5f, 1);
 
-        // Опускаем текст "Сжать/Разжать" чуть ниже, чтобы освободить место для полоски
-        lrt.anchoredPosition = new Vector2(0, -15);
+        // Оставляем небольшой отступ вниз
+        lrt.anchoredPosition = new Vector2(0, -20);
         lrt.sizeDelta = new Vector2(120, 40);
 
         Text lText = labelObj.AddComponent<Text>();

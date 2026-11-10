@@ -48,6 +48,9 @@ public class ClawController : MonoBehaviour
     public float floorY = 1.0f;
     public float disappearDelay = 3f;
 
+    // РЕЖИМ УРОВНЯ
+    private LevelPlayMode currentPlayMode = LevelPlayMode.Standard;
+
     private float currentAngle = 0f;
     private Quaternion baseRot1, baseRot2, baseRot3;
     private Transform clawPivot;
@@ -80,6 +83,17 @@ public class ClawController : MonoBehaviour
     void Start()
     {
         InitializeClaw();
+    }
+
+    public void SetPlayMode(LevelPlayMode mode)
+    {
+        currentPlayMode = mode;
+        Debug.Log($"[ClawController] Установлен режим уровня: {mode}");
+    }
+
+    public bool IsHoldingToy()
+    {
+        return grabbedToy != null;
     }
 
     public void ResetClawForNewLevel()
@@ -229,14 +243,13 @@ public class ClawController : MonoBehaviour
     public void StartReleasing() { isReleasingActive = true; isGrabbingActive = false; }
     public void StopReleasing() { isReleasingActive = false; }
 
-    void Update()
+        void Update()
     {
         if (!isInitialized || clawPivot == null || waypoints == null) return;
 
         if (isToyFalling)
         {
             HandleToyFalling();
-
             Vector3 targetPos = waypoints[currentWaypointIndex];
             clawPivot.position = Vector3.MoveTowards(clawPivot.position, targetPos, moveSpeed * Time.deltaTime);
             if (Vector3.Distance(clawPivot.position, targetPos) < 0.01f)
@@ -247,80 +260,64 @@ public class ClawController : MonoBehaviour
             return;
         }
 
-        bool grabActive = false;
-        bool releaseActive = false;
-
-        // --- ЛОГИКА ВВОДА (ЭМГ, СПППР или Кнопки) ---
+        // --- ЛОГИКА ВВОДА ---
         if (InputManager.Instance != null && InputManager.Instance.currentMode != InputManager.ControlMode.DirectButtons)
         {
             float ch1 = InputManager.Instance.GetChannel1();
             float ch2 = InputManager.Instance.GetChannel2();
 
-            // УВЕДОМЛЕНИЕ ДЛЯ МИССИЙ: Игрок использовал 2-й канал
-            if (ch2 > 0.1f && MissionManager.Instance != null)
+            // Уведомление миссий о неверном канале
+            if (MissionManager.Instance != null)
             {
-                MissionManager.Instance.OnFailedAction(true);
+                if (currentPlayMode == LevelPlayMode.Standard && ch2 > 0.1f) MissionManager.Instance.OnFailedAction(true);
+                if (currentPlayMode == LevelPlayMode.Inverted && ch1 > 0.1f) MissionManager.Instance.OnFailedAction(true);
             }
 
-            // ШТРАФ ЗА СПАЗМ (Изоляция)
-            if (ch1 > 0.5f && ch2 > 0.5f)
+            // Штраф за спазм (активны оба канала в режимах Standard/Inverted)
+            if (ch1 > 0.5f && ch2 > 0.5f && currentPlayMode != LevelPlayMode.Dual)
             {
                 UpdateRopeAndHands();
                 return;
             }
 
-            if (isProportionalMode)
+            // --- УПРАВЛЕНИЕ КЛЕШНЕЙ ПО РЕЖИМАМ ---
+            if (currentPlayMode == LevelPlayMode.Standard)
             {
-                if (ch1 > 0.05f) { grabActive = true; currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed * ch1); }
-                if (ch2 > 0.05f) { releaseActive = true; currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed * ch2); }
+                currentAngle = ch1 * maxAngle;
             }
-            else
+            else if (currentPlayMode == LevelPlayMode.Inverted)
             {
-                grabActive = ch1 > activationThreshold;
-                releaseActive = ch2 > activationThreshold;
-
-                if (grabActive) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
-                if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
+                currentAngle = ch2 * maxAngle;
+            }
+            else if (currentPlayMode == LevelPlayMode.Dual)
+            {
+                if (ch1 > 0.05f) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed * ch1);
+                if (ch2 > 0.05f) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed * ch2);
             }
 
-            // МЕХАНИКА УДЕРЖАНИЯ: если игрушка захвачена, но сигнал слабый — отпускаем
-            if (grabbedToy != null && !isLowering && !isGrabbing)
+            // ПОРОГ ЗАХВАТА: 0.75 и выше (опускание начинается только если сигнал достиг 75% от максимума)
+            if (currentAngle > maxAngle * 0.75f && !isGrabbing && !isLowering && grabbedToy == null)
             {
-                if (!grabActive)
-                {
-                    ReleaseGrabbedToy();
-                }
+                isLowering = true;
+            }
+
+            // ПОРОГ СБРОСА: 0.85 и ниже (если игрушка в руках, но сигнал упал до 85%)
+            if (grabbedToy != null && !isLowering && !isGrabbing && currentAngle < maxAngle * 0.85f)
+            {
+                ReleaseGrabbedToy();
             }
         }
         else
         {
-            grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
-            releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
+            // Управление кнопками (для тач-режима)
+            bool grabActive = Input.GetKey(KeyCode.A) || isGrabbingActive;
+            bool releaseActive = Input.GetKey(KeyCode.D) || isReleasingActive;
 
             if (grabActive) currentAngle = Mathf.MoveTowards(currentAngle, maxAngle, Time.deltaTime * speed);
             else if (releaseActive) currentAngle = Mathf.MoveTowards(currentAngle, 0f, Time.deltaTime * speed);
         }
 
         // --- ЛОГИКА ДВИЖЕНИЯ ---
-        if (grabActive && !isLowering && !isGrabbing && grabbedToy == null)
-        {
-            isLowering = true;
-        }
-
-        if (releaseActive)
-        {
-            if (grabbedToy != null)
-            {
-                ReleaseGrabbedToy();
-            }
-
-            if (isLowering || isGrabbing)
-            {
-                isLowering = false;
-                isGrabbing = true;
-            }
-        }
-
         if (isLowering)
         {
             if (clawPivot.position.y > minY)
@@ -387,11 +384,6 @@ public class ClawController : MonoBehaviour
         UpdateRopeAndHands();
     }
 
-    public bool IsHoldingToy()
-    {
-        return grabbedToy != null;
-    }
-
     void UpdateRopeAndHands()
     {
         if (fakeRope != null)
@@ -414,7 +406,7 @@ public class ClawController : MonoBehaviour
 
     void ReleaseGrabbedToy()
     {
-        // УВЕДОМЛЕНИЕ ДЛЯ МИССИЙ: Игрок отпустил игрушку в полете
+        // Уведомление миссий о разжатии в полете
         if (!isLowering && !isGrabbing && grabbedToy != null)
         {
             if (MissionManager.Instance != null)

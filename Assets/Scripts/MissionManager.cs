@@ -22,6 +22,7 @@ public class MissionManager : MonoBehaviour
     private int toysCollectedThisLevel = 0;
     private int totalToysRequired = 0;
     private bool hasUsedChannel2 = false;
+    private bool hasUsedChannel1 = false;
     private bool hasFailed = false;
 
     void Awake()
@@ -62,11 +63,12 @@ public class MissionManager : MonoBehaviour
         }
     }
 
-    public void StartLevel(int level)
+    public void StartLevel(int level, LevelPlayMode playMode)
     {
         levelStartTime = Time.time;
         toysCollectedThisLevel = 0;
         hasUsedChannel2 = false;
+        hasUsedChannel1 = false;
         hasFailed = false;
         totalToysRequired = 1;
 
@@ -79,7 +81,21 @@ public class MissionManager : MonoBehaviour
 
         float timeLimit = 40f + (level * 10f);
         pool.Add(new Mission { description = $"Уложись в {timeLimit} сек", updateAction = () => CheckTime(timeLimit) });
-        pool.Add(new Mission { description = "Не используй 2-й канал", updateAction = CheckIsolation });
+
+        // Адаптируем миссию изоляции под режим уровня
+        if (playMode == LevelPlayMode.Standard)
+        {
+            pool.Add(new Mission { description = "Не используй 2-й канал", updateAction = CheckIsolation });
+        }
+        else if (playMode == LevelPlayMode.Inverted)
+        {
+            pool.Add(new Mission { description = "Не используй 1-й канал", updateAction = CheckIsolation });
+        }
+        else // Dual
+        {
+            pool.Add(new Mission { description = "Плавно сожми клешню до 100%", updateAction = CheckPrecision });
+        }
+
         pool.Add(new Mission { description = "Не отпускай игрушку раньше отсека", updateAction = CheckAccuracy });
 
         var selected = pool.OrderBy(x => Random.value).Take(2).ToList();
@@ -118,10 +134,11 @@ public class MissionManager : MonoBehaviour
 
     private void CheckIsolation()
     {
-        if (hasUsedChannel2)
+        var m = activeMissions.Find(x => x.description.Contains("канал"));
+        if (m != null)
         {
-            var m = activeMissions.Find(x => x.description.Contains("канал"));
-            if (m != null) m.isFailed = true;
+            if (m.description.Contains("2-й") && hasUsedChannel2) m.isFailed = true;
+            if (m.description.Contains("1-й") && hasUsedChannel1) m.isFailed = true;
         }
     }
 
@@ -131,6 +148,19 @@ public class MissionManager : MonoBehaviour
         if (m != null && hasFailed) m.isFailed = true;
     }
 
+    private void CheckPrecision()
+    {
+        if (InputManager.Instance == null) return;
+
+        float ch1 = InputManager.Instance.GetChannel1();
+
+        if (ch1 >= 0.95f)
+        {
+            var m = activeMissions.Find(x => x.description.Contains("Плавно"));
+            if (m != null) m.isCompleted = true;
+        }
+    }
+
     public void OnToyCollected()
     {
         toysCollectedThisLevel++;
@@ -138,8 +168,19 @@ public class MissionManager : MonoBehaviour
 
     public void OnFailedAction(bool wasWrongChannel = false)
     {
-        if (wasWrongChannel) hasUsedChannel2 = true;
-        else hasFailed = true;
+        if (wasWrongChannel)
+        {
+            // Определяем, какой канал был "не тем", исходя из описания миссии
+            var m2 = activeMissions.Find(x => x.description.Contains("2-й"));
+            var m1 = activeMissions.Find(x => x.description.Contains("1-й"));
+
+            if (m2 != null) hasUsedChannel2 = true;
+            if (m1 != null) hasUsedChannel1 = true;
+        }
+        else
+        {
+            hasFailed = true;
+        }
     }
 
     public void SetTotalToys(int count)
